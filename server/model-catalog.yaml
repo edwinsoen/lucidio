@@ -1,0 +1,598 @@
+provider: byteplus
+updated: '2026-10-03'
+sourceDocs:
+  - title: BytePlus ModelArk model list
+    url: https://docs.byteplus.com/en/docs/ModelArk/1330310
+    lastReviewed: '2026-10-03'
+  - title: BytePlus image generation API
+    url: https://docs.byteplus.com/en/docs/ModelArk/1541523
+    lastReviewed: '2026-06-30'
+  - title: BytePlus Seedream 4.0-5.0 tutorial
+    url: https://docs.byteplus.com/en/docs/ModelArk/1824121
+    lastReviewed: '2026-06-30'
+  - title: BytePlus Seedream 5.0 Pro tutorial
+    url: https://docs.byteplus.com/en/docs/ModelArk/2582774
+    lastReviewed: '2026-10-03'
+  - title: BytePlus video generation API
+    url: https://docs.byteplus.com/en/docs/ModelArk/1520757
+    lastReviewed: '2026-06-30'
+  - title: BytePlus Dreamina Seedance 2.0 tutorial
+    url: https://docs.byteplus.com/en/docs/ModelArk/2291680
+    lastReviewed: '2026-06-30'
+  - title: BytePlus Dreamina Seedance 2.5 tutorial
+    url: https://docs.byteplus.com/en/docs/ModelArk/2607688
+    lastReviewed: '2026-08-12'
+  - title: Gemini API image generation (Nano Banana, Interactions API)
+    url: https://ai.google.dev/gemini-api/docs/image-generation
+    lastReviewed: '2026-07-24'
+  - title: Gemini API Veo video generation
+    url: https://ai.google.dev/gemini-api/docs/veo
+    lastReviewed: '2026-07-24'
+notes:
+  - Includes Seedream and Seedance IDs present in the BytePlus ModelArk model list reviewed on 2026-10-03.
+  - Older API-reference-only Seedream 3.0 and Seededit variants are intentionally excluded from this first catalog.
+  - Gemini models carry provider gemini and use the catalog id directly as the API model name (no endpoint mapping). Nano Banana image and Omni Flash video use the Interactions API; Veo uses predictLongRunning + operation polling. Imagen (deprecated) and legacy gemini-2.5-flash-image are intentionally excluded.
+  - Gemini video (Veo, Omni Flash) returns only an MP4; Lucidio extracts the first frame as the thumbnail server-side. Omni Flash is a public-preview model and its retrieval mechanics may change.
+  - Dreamina Seedance 2.5 request parameter names/enums are carried over from the Seedance 2.0 schema (same task-based /api/v3/contents/generations/tasks endpoint) pending confirmation against BytePlus's API reference; capabilities (resolution, duration, aspect ratios, audio) are sourced from BytePlus's public console/marketing pages as of 2026-08-12.
+  - Seedream 5.0 Pro and Flash image-generation capabilities and sizes follow BytePlus's Pro/Flash tutorial reviewed on 2026-10-03. Layer decomposition is a separate API flow and is excluded from these single-output catalog entries. Seedream 5.0 Pro does not support sequential_image_generation; the same single-output behavior is used for Flash.
+models:
+  - id: seedream-5-0-260128
+    displayName: Seedream 5.0
+    family: seedream
+    modality: image
+    endpoint: /api/v3/images/generations
+    description: Leading BytePlus image generation model with reference consistency and professional image quality.
+    capabilities:
+      tasks:
+        - text-to-image
+        - image-to-image
+        - multi-reference-image-to-image
+        - sequential-image-generation
+      resolutions: [2K, 4K]
+      aspectRatios: [1:1, 16:9, 9:16, 4:3, 3:4, 3:2, 2:3, 21:9]
+      outputFormats: [jpeg]
+      responseFormats: [url, b64_json]
+      maxReferenceImages: 14
+      maxOutputImages: 15
+    parameters:
+      - { name: model, type: string, required: true, notes: BytePlus model ID or endpoint ID. }
+      - { name: prompt, type: string, required: true, maxRecommendedWords: 600 }
+      - { name: image, type: string_or_array, required: false, maxItems: 14, notes: URL or data URL reference images; supports single or multiple images. }
+      - { name: size, type: string, required: false, enum: [2K, 4K], default: 2048x2048, notes: May also be explicit WIDTHxHEIGHT within documented pixel/aspect constraints. }
+      - { name: sequential_image_generation, type: string, required: false, enum: [auto, disabled], default: disabled }
+      - { name: sequential_image_generation_options.max_images, type: integer, required: false, minimum: 1, maximum: 15, default: 15 }
+      - { name: stream, type: boolean, required: false, default: false }
+      - { name: response_format, type: string, required: false, enum: [url, b64_json], default: url }
+      - { name: watermark, type: boolean, required: false, default: true }
+      - { name: optimize_prompt_options.mode, type: string, required: false, enum: [standard, fast], default: standard }
+
+  - id: dola-seedream-5-0-pro-260628
+    displayName: Seedream 5.0 Pro
+    family: seedream
+    modality: image
+    endpoint: /api/v3/images/generations
+    description: Pro-tier BytePlus image generation model with photorealistic rendering, complex infographic generation, and native multilingual text rendering.
+    capabilities:
+      tasks:
+        - text-to-image
+        - image-to-image
+        - multi-reference-image-to-image
+      resolutions: [1K, 1.5K, 2K]
+      aspectRatios: [1:1, 16:9, 9:16, 4:3, 3:4, 3:2, 2:3, 21:9]
+      outputFormats: [jpeg, png]
+      responseFormats: [url, b64_json]
+      maxReferenceImages: 10
+      maxOutputImages: 1
+    parameters:
+      - { name: model, type: string, required: true, notes: BytePlus model ID or endpoint ID. }
+      - { name: prompt, type: string, required: true, maxRecommendedWords: 600 }
+      - { name: image, type: string_or_array, required: false, maxItems: 10, notes: URL or data URL reference images; supports single or multiple images. }
+      - { name: size, type: string, required: false, enum: [1K, 1.5K, 2K], default: 2K, notes: May also be explicit WIDTHxHEIGHT within documented pixel/aspect constraints. }
+      - { name: stream, type: boolean, required: false, default: false }
+      - { name: output_format, type: string, required: false, enum: [png, jpeg], default: jpeg }
+      - { name: response_format, type: string, required: false, enum: [url, b64_json], default: url }
+      - { name: watermark, type: boolean, required: false, default: false }
+      - { name: optimize_prompt_options.mode, type: string, required: false, enum: [standard, fast], default: standard }
+
+  - id: dola-seedream-5-0-flash-260915
+    displayName: Seedream 5.0 Flash
+    family: seedream
+    modality: image
+    endpoint: /api/v3/images/generations
+    description: Faster, lower-cost Seedream 5.0 image generation with single and multi-reference editing.
+    capabilities:
+      tasks:
+        - text-to-image
+        - image-to-image
+        - multi-reference-image-to-image
+      resolutions: [1K, 1.5K, 2K]
+      aspectRatios: [1:1, 16:9, 9:16, 4:3, 3:4, 3:2, 2:3, 21:9]
+      outputFormats: [jpeg, png]
+      responseFormats: [url, b64_json]
+      maxReferenceImages: 10
+      maxOutputImages: 1
+    parameters:
+      - { name: model, type: string, required: true, notes: BytePlus model ID or endpoint ID. }
+      - { name: prompt, type: string, required: true, maxRecommendedWords: 600 }
+      - { name: image, type: string_or_array, required: false, maxItems: 10, notes: URL or data URL reference images; supports single or multiple images. }
+      - { name: size, type: string, required: false, enum: [1K, 1.5K, 2K], default: 2K, notes: May also be explicit WIDTHxHEIGHT within documented pixel/aspect constraints. }
+      - { name: stream, type: boolean, required: false, default: false }
+      - { name: output_format, type: string, required: false, enum: [png, jpeg], default: jpeg }
+      - { name: response_format, type: string, required: false, enum: [url, b64_json], default: url }
+      - { name: watermark, type: boolean, required: false, default: false }
+
+  - id: seedream-5-0-lite-260128
+    displayName: Seedream 5.0 Lite
+    family: seedream
+    modality: image
+    endpoint: /api/v3/images/generations
+    description: Seedream 5.0 Lite image generation model with multi-reference and batch-generation support.
+    capabilities:
+      tasks:
+        - text-to-image
+        - image-to-image
+        - multi-reference-image-to-image
+        - sequential-image-generation
+      resolutions: [2K, 4K]
+      aspectRatios: [1:1, 16:9, 9:16, 4:3, 3:4, 3:2, 2:3, 21:9]
+      outputFormats: [jpeg, png]
+      responseFormats: [url, b64_json]
+      maxReferenceImages: 14
+      maxOutputImages: 15
+    parameters:
+      - { name: model, type: string, required: true, notes: BytePlus model ID or endpoint ID. }
+      - { name: prompt, type: string, required: true, maxRecommendedWords: 600 }
+      - { name: image, type: string_or_array, required: false, maxItems: 14, notes: URL or data URL reference images; supports single or multiple images. }
+      - { name: size, type: string, required: false, enum: [2K, 4K], default: 2048x2048, notes: May also be explicit WIDTHxHEIGHT within documented pixel/aspect constraints. }
+      - { name: sequential_image_generation, type: string, required: false, enum: [auto, disabled], default: disabled }
+      - { name: sequential_image_generation_options.max_images, type: integer, required: false, minimum: 1, maximum: 15, default: 15 }
+      - { name: stream, type: boolean, required: false, default: false }
+      - { name: output_format, type: string, required: false, enum: [png, jpeg], default: jpeg }
+      - { name: response_format, type: string, required: false, enum: [url, b64_json], default: url }
+      - { name: watermark, type: boolean, required: false, default: true }
+      - { name: optimize_prompt_options.mode, type: string, required: false, enum: [standard, fast], default: standard }
+
+  - id: seedream-4-5-251128
+    displayName: Seedream 4.5
+    family: seedream
+    modality: image
+    endpoint: /api/v3/images/generations
+    description: Seedream 4.5 image generation model with single and multi-reference image support.
+    capabilities:
+      tasks:
+        - text-to-image
+        - image-to-image
+        - multi-reference-image-to-image
+        - sequential-image-generation
+      resolutions: [2K, 4K]
+      aspectRatios: [1:1, 16:9, 9:16, 4:3, 3:4, 3:2, 2:3, 21:9]
+      outputFormats: [jpeg]
+      responseFormats: [url, b64_json]
+      maxReferenceImages: 14
+      maxOutputImages: 15
+    parameters:
+      - { name: model, type: string, required: true, notes: BytePlus model ID or endpoint ID. }
+      - { name: prompt, type: string, required: true, maxRecommendedWords: 600 }
+      - { name: image, type: string_or_array, required: false, maxItems: 14 }
+      - { name: size, type: string, required: false, enum: [2K, 4K], default: 2048x2048, notes: May also be explicit WIDTHxHEIGHT within documented pixel/aspect constraints. }
+      - { name: sequential_image_generation, type: string, required: false, enum: [auto, disabled], default: disabled }
+      - { name: sequential_image_generation_options.max_images, type: integer, required: false, minimum: 1, maximum: 15, default: 15 }
+      - { name: stream, type: boolean, required: false, default: false }
+      - { name: response_format, type: string, required: false, enum: [url, b64_json], default: url }
+      - { name: watermark, type: boolean, required: false, default: true }
+      - { name: optimize_prompt_options.mode, type: string, required: false, enum: [standard], default: standard }
+
+  - id: seedream-4-0-250828
+    displayName: Seedream 4.0
+    family: seedream
+    modality: image
+    endpoint: /api/v3/images/generations
+    description: Seedream 4.0 image generation model with text, single-reference, multi-reference, and batch output support.
+    capabilities:
+      tasks:
+        - text-to-image
+        - image-to-image
+        - multi-reference-image-to-image
+        - sequential-image-generation
+      resolutions: [1K, 2K, 4K]
+      aspectRatios: [1:1, 16:9, 9:16, 4:3, 3:4, 3:2, 2:3, 21:9]
+      outputFormats: [jpeg]
+      responseFormats: [url, b64_json]
+      maxReferenceImages: 14
+      maxOutputImages: 15
+    parameters:
+      - { name: model, type: string, required: true, notes: BytePlus model ID or endpoint ID. }
+      - { name: prompt, type: string, required: true, maxRecommendedWords: 600 }
+      - { name: image, type: string_or_array, required: false, maxItems: 14 }
+      - { name: size, type: string, required: false, enum: [1K, 2K, 4K], default: 2048x2048, notes: May also be explicit WIDTHxHEIGHT within documented pixel/aspect constraints. }
+      - { name: sequential_image_generation, type: string, required: false, enum: [auto, disabled], default: disabled }
+      - { name: sequential_image_generation_options.max_images, type: integer, required: false, minimum: 1, maximum: 15, default: 15 }
+      - { name: stream, type: boolean, required: false, default: false }
+      - { name: response_format, type: string, required: false, enum: [url, b64_json], default: url }
+      - { name: watermark, type: boolean, required: false, default: true }
+      - { name: optimize_prompt_options.mode, type: string, required: false, enum: [standard, fast], default: standard }
+
+  - id: dreamina-seedance-2-0-260128
+    displayName: Dreamina Seedance 2.0
+    family: seedance
+    modality: video
+    endpoint: /api/v3/contents/generations/tasks
+    description: Mainline Seedance 2.0 video generation model with high-fidelity audio-visual synchronization.
+    capabilities:
+      tasks:
+        - text-to-video
+        - image-to-video-first-frame
+        - image-to-video-first-and-last-frames
+        - multimodal-reference-to-video
+        - video-modification
+        - video-extension
+      resolutions: [480p, 720p, 1080p, 4k]
+      frameRates: [24]
+      durationSeconds: { minimum: 4, maximum: 15, intelligent: -1 }
+      aspectRatios: [adaptive, 16:9, 4:3, 1:1, 3:4, 9:16, 21:9]
+      videoFormat: mp4
+      audio: true
+      serviceTiers: [default]
+    parameters:
+      - { name: model, type: string, required: true }
+      - { name: content, type: array, required: true, notes: Text plus optional image, video, audio, or sample task references. }
+      - { name: callback_url, type: string, required: false }
+      - { name: return_last_frame, type: boolean, required: false, default: false }
+      - { name: execution_expires_after, type: integer, required: false, minimum: 3600, maximum: 259200, default: 172800 }
+      - { name: generate_audio, type: boolean, required: false, default: true }
+      - { name: safety_identifier, type: string, required: false, maxLength: 64 }
+      - { name: priority, type: integer, required: false, minimum: 0, maximum: 9, default: 0 }
+      - { name: resolution, type: string, required: false, enum: [480p, 720p, 1080p, 4k], default: 720p }
+      - { name: ratio, type: string, required: false, enum: [adaptive, 16:9, 4:3, 1:1, 3:4, 9:16, 21:9], default: adaptive }
+      - { name: duration, type: integer, required: false, minimum: 4, maximum: 15, default: 5, supportsIntelligent: -1 }
+      - { name: watermark, type: boolean, required: false, default: false }
+
+  - id: dreamina-seedance-2-0-fast-260128
+    displayName: Dreamina Seedance 2.0 Fast
+    family: seedance
+    modality: video
+    endpoint: /api/v3/contents/generations/tasks
+    description: Fast Seedance 2.0 video generation variant with audio-visual synchronization.
+    capabilities:
+      tasks:
+        - text-to-video
+        - image-to-video-first-frame
+        - image-to-video-first-and-last-frames
+        - multimodal-reference-to-video
+        - video-modification
+        - video-extension
+      resolutions: [480p, 720p]
+      frameRates: [24]
+      durationSeconds: { minimum: 4, maximum: 15, intelligent: -1 }
+      aspectRatios: [adaptive, 16:9, 4:3, 1:1, 3:4, 9:16, 21:9]
+      videoFormat: mp4
+      audio: true
+      serviceTiers: [default]
+    parameters:
+      - { name: model, type: string, required: true }
+      - { name: content, type: array, required: true }
+      - { name: callback_url, type: string, required: false }
+      - { name: return_last_frame, type: boolean, required: false, default: false }
+      - { name: execution_expires_after, type: integer, required: false, minimum: 3600, maximum: 259200, default: 172800 }
+      - { name: generate_audio, type: boolean, required: false, default: true }
+      - { name: safety_identifier, type: string, required: false, maxLength: 64 }
+      - { name: priority, type: integer, required: false, minimum: 0, maximum: 9, default: 0 }
+      - { name: resolution, type: string, required: false, enum: [480p, 720p], default: 720p }
+      - { name: ratio, type: string, required: false, enum: [adaptive, 16:9, 4:3, 1:1, 3:4, 9:16, 21:9], default: adaptive }
+      - { name: duration, type: integer, required: false, minimum: 4, maximum: 15, default: 5, supportsIntelligent: -1 }
+      - { name: watermark, type: boolean, required: false, default: false }
+
+  - id: dreamina-seedance-2-0-mini-260615
+    displayName: Dreamina Seedance 2.0 Mini
+    family: seedance
+    modality: video
+    endpoint: /api/v3/contents/generations/tasks
+    description: Mini Seedance 2.0 video generation variant with audio-visual synchronization.
+    capabilities:
+      tasks:
+        - text-to-video
+        - image-to-video-first-frame
+        - image-to-video-first-and-last-frames
+        - multimodal-reference-to-video
+        - video-modification
+        - video-extension
+      resolutions: [480p, 720p]
+      frameRates: [24]
+      durationSeconds: { minimum: 4, maximum: 15, intelligent: -1 }
+      aspectRatios: [adaptive, 16:9, 4:3, 1:1, 3:4, 9:16, 21:9]
+      videoFormat: mp4
+      audio: true
+      serviceTiers: [default]
+    parameters:
+      - { name: model, type: string, required: true }
+      - { name: content, type: array, required: true }
+      - { name: callback_url, type: string, required: false }
+      - { name: return_last_frame, type: boolean, required: false, default: false }
+      - { name: execution_expires_after, type: integer, required: false, minimum: 3600, maximum: 259200, default: 172800 }
+      - { name: generate_audio, type: boolean, required: false, default: true }
+      - { name: safety_identifier, type: string, required: false, maxLength: 64 }
+      - { name: priority, type: integer, required: false, minimum: 0, maximum: 9, default: 0 }
+      - { name: resolution, type: string, required: false, enum: [480p, 720p], default: 720p }
+      - { name: ratio, type: string, required: false, enum: [adaptive, 16:9, 4:3, 1:1, 3:4, 9:16, 21:9], default: adaptive }
+      - { name: duration, type: integer, required: false, minimum: 4, maximum: 15, default: 5, supportsIntelligent: -1 }
+      - { name: watermark, type: boolean, required: false, default: false }
+
+  - id: dreamina-seedance-2-5-260628
+    displayName: Dreamina Seedance 2.5
+    family: seedance
+    modality: video
+    endpoint: /api/v3/contents/generations/tasks
+    description: >-
+      Next-gen Seedance 2.5 video generation model with native 4-30s
+      cinematic narratives, precision in-video editing, and expanded
+      multimodal reference support (up to 30 images, 10 videos, 10 audio
+      clips per request).
+    capabilities:
+      tasks:
+        - text-to-video
+        - image-to-video-first-frame
+        - image-to-video-first-and-last-frames
+        - multimodal-reference-to-video
+        - video-modification
+      resolutions: [480p, 720p]
+      frameRates: [24]
+      durationSeconds: { minimum: 4, maximum: 30, intelligent: -1 }
+      aspectRatios: [21:9, 16:9, 4:3, 1:1, 3:4, 9:16]
+      videoFormat: mp4
+      audio: true
+      serviceTiers: [default]
+    parameters:
+      - { name: model, type: string, required: true }
+      - { name: content, type: array, required: true, notes: Text plus optional image, video, audio, or sample task references (up to 50 total; 30 images, 10 videos, 10 audio). }
+      - { name: callback_url, type: string, required: false }
+      - { name: return_last_frame, type: boolean, required: false, default: false }
+      - { name: execution_expires_after, type: integer, required: false, minimum: 3600, maximum: 259200, default: 172800 }
+      - { name: generate_audio, type: boolean, required: false, default: true }
+      - { name: safety_identifier, type: string, required: false, maxLength: 64 }
+      - { name: priority, type: integer, required: false, minimum: 0, maximum: 9, default: 0 }
+      - { name: resolution, type: string, required: false, enum: [480p, 720p], default: 720p }
+      - { name: ratio, type: string, required: false, enum: [21:9, 16:9, 4:3, 1:1, 3:4, 9:16], default: 16:9 }
+      - { name: duration, type: integer, required: false, minimum: 4, maximum: 30, default: 5, supportsIntelligent: -1 }
+      - { name: watermark, type: boolean, required: false, default: false }
+
+  - id: seedance-1-5-pro-251215
+    displayName: Seedance 1.5 Pro
+    family: seedance
+    modality: video
+    endpoint: /api/v3/contents/generations/tasks
+    description: Seedance 1.5 Pro video model with audio generation and draft mode support.
+    capabilities:
+      tasks:
+        - text-to-video
+        - image-to-video-first-frame
+        - image-to-video-first-and-last-frames
+      resolutions: [480p, 720p, 1080p]
+      frameRates: [24]
+      durationSeconds: { minimum: 4, maximum: 12, intelligent: -1 }
+      aspectRatios: [adaptive, 16:9, 4:3, 1:1, 3:4, 9:16, 21:9]
+      videoFormat: mp4
+      audio: true
+      draft: true
+      serviceTiers: [default, flex]
+    parameters:
+      - { name: model, type: string, required: true }
+      - { name: content, type: array, required: true }
+      - { name: callback_url, type: string, required: false }
+      - { name: return_last_frame, type: boolean, required: false, default: false }
+      - { name: service_tier, type: string, required: false, enum: [default, flex], default: default }
+      - { name: execution_expires_after, type: integer, required: false, minimum: 3600, maximum: 259200, default: 172800 }
+      - { name: generate_audio, type: boolean, required: false, default: true }
+      - { name: draft, type: boolean, required: false, default: false, notes: Draft mode requires 480p and disables last-frame return/offline inference. }
+      - { name: safety_identifier, type: string, required: false, maxLength: 64 }
+      - { name: resolution, type: string, required: false, enum: [480p, 720p, 1080p], default: 720p }
+      - { name: ratio, type: string, required: false, enum: [adaptive, 16:9, 4:3, 1:1, 3:4, 9:16, 21:9], default: adaptive }
+      - { name: duration, type: integer, required: false, minimum: 4, maximum: 12, default: 5, supportsIntelligent: -1 }
+      - { name: seed, type: integer, required: false, minimum: -1, maximum: 4294967295, default: -1 }
+      - { name: camera_fixed, type: boolean, required: false, default: false }
+      - { name: watermark, type: boolean, required: false, default: false }
+
+  - id: seedance-1-0-pro-250528
+    displayName: Seedance 1.0 Pro
+    family: seedance
+    modality: video
+    endpoint: /api/v3/contents/generations/tasks
+    description: Seedance 1.0 Pro video generation model for text-to-video and first-frame/first-last-frame image-to-video.
+    capabilities:
+      tasks:
+        - text-to-video
+        - image-to-video-first-frame
+        - image-to-video-first-and-last-frames
+      resolutions: [480p, 720p, 1080p]
+      frameRates: [24]
+      durationSeconds: { minimum: 2, maximum: 12 }
+      aspectRatios: [16:9, 4:3, 1:1, 3:4, 9:16, 21:9, adaptive]
+      videoFormat: mp4
+      audio: false
+      serviceTiers: [default, flex]
+    parameters:
+      - { name: model, type: string, required: true }
+      - { name: content, type: array, required: true }
+      - { name: callback_url, type: string, required: false }
+      - { name: return_last_frame, type: boolean, required: false, default: false }
+      - { name: service_tier, type: string, required: false, enum: [default, flex], default: default }
+      - { name: execution_expires_after, type: integer, required: false, minimum: 3600, maximum: 259200, default: 172800 }
+      - { name: safety_identifier, type: string, required: false, maxLength: 64 }
+      - { name: resolution, type: string, required: false, enum: [480p, 720p, 1080p], default: 1080p }
+      - { name: ratio, type: string, required: false, enum: [16:9, 4:3, 1:1, 3:4, 9:16, 21:9, adaptive], default: 16:9 }
+      - { name: duration, type: integer, required: false, minimum: 2, maximum: 12, default: 5 }
+      - { name: frames, type: integer, required: false, minimum: 29, maximum: 289, stepRule: 25 + 4n }
+      - { name: seed, type: integer, required: false, minimum: -1, maximum: 4294967295, default: -1 }
+      - { name: camera_fixed, type: boolean, required: false, default: false }
+      - { name: watermark, type: boolean, required: false, default: false }
+
+  - id: seedance-1-0-pro-fast-251015
+    displayName: Seedance 1.0 Pro Fast
+    family: seedance
+    modality: video
+    endpoint: /api/v3/contents/generations/tasks
+    description: Fast Seedance 1.0 Pro variant for text-to-video and first-frame image-to-video.
+    capabilities:
+      tasks:
+        - text-to-video
+        - image-to-video-first-frame
+      resolutions: [480p, 720p]
+      frameRates: [24]
+      durationSeconds: { minimum: 2, maximum: 12 }
+      aspectRatios: [16:9, 4:3, 1:1, 3:4, 9:16, 21:9, adaptive]
+      videoFormat: mp4
+      audio: false
+      serviceTiers: [default, flex]
+    parameters:
+      - { name: model, type: string, required: true }
+      - { name: content, type: array, required: true }
+      - { name: callback_url, type: string, required: false }
+      - { name: return_last_frame, type: boolean, required: false, default: false }
+      - { name: service_tier, type: string, required: false, enum: [default, flex], default: default }
+      - { name: execution_expires_after, type: integer, required: false, minimum: 3600, maximum: 259200, default: 172800 }
+      - { name: safety_identifier, type: string, required: false, maxLength: 64 }
+      - { name: resolution, type: string, required: false, enum: [480p, 720p], default: 1080p, notes: API default is 1080p for Seedance 1.0, but this model list entry advertises 480p/720p output. }
+      - { name: ratio, type: string, required: false, enum: [16:9, 4:3, 1:1, 3:4, 9:16, 21:9, adaptive], default: 16:9 }
+      - { name: duration, type: integer, required: false, minimum: 2, maximum: 12, default: 5 }
+      - { name: frames, type: integer, required: false, minimum: 29, maximum: 289, stepRule: 25 + 4n }
+      - { name: seed, type: integer, required: false, minimum: -1, maximum: 4294967295, default: -1 }
+      - { name: camera_fixed, type: boolean, required: false, default: false }
+      - { name: watermark, type: boolean, required: false, default: false }
+
+  # --- Google Gemini ---
+
+  - id: gemini-3-pro-image
+    displayName: Nano Banana Pro
+    provider: gemini
+    family: nano-banana
+    modality: image
+    endpoint: /v1beta/interactions
+    description: Gemini 3 Pro Image (Nano Banana Pro) — top-quality reasoning-driven image generation and editing with up to 4K output.
+    capabilities:
+      tasks:
+        - text-to-image
+        - image-to-image
+        - multi-reference-image-to-image
+      resolutions: [512px, 1K, 2K, 4K]
+      aspectRatios: [1:1, 3:2, 2:3, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9]
+      outputFormats: [jpeg, png]
+      maxReferenceImages: 14
+      maxOutputImages: 1
+    parameters:
+      - { name: prompt, type: string, required: true, maxRecommendedWords: 480 }
+
+  - id: gemini-3.1-flash-image
+    displayName: Nano Banana 2
+    provider: gemini
+    family: nano-banana
+    modality: image
+    endpoint: /v1beta/interactions
+    description: Gemini 3.1 Flash Image (Nano Banana 2) — fast, cost-efficient image generation and editing at up to 4K.
+    capabilities:
+      tasks:
+        - text-to-image
+        - image-to-image
+        - multi-reference-image-to-image
+      resolutions: [512px, 1K, 2K, 4K]
+      aspectRatios: [1:1, 3:2, 2:3, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9]
+      outputFormats: [jpeg, png]
+      maxReferenceImages: 14
+      maxOutputImages: 1
+    parameters:
+      - { name: prompt, type: string, required: true, maxRecommendedWords: 480 }
+
+  - id: gemini-3.1-flash-lite-image
+    displayName: Nano Banana 2 Lite
+    provider: gemini
+    family: nano-banana
+    modality: image
+    endpoint: /v1beta/interactions
+    description: Gemini 3.1 Flash Lite Image (Nano Banana 2 Lite) — cheapest Nano Banana tier, 1K output only.
+    capabilities:
+      tasks:
+        - text-to-image
+        - image-to-image
+        - multi-reference-image-to-image
+      resolutions: [1K]
+      aspectRatios: [1:1, 3:2, 2:3, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9]
+      outputFormats: [jpeg, png]
+      maxReferenceImages: 14
+      maxOutputImages: 1
+    parameters:
+      - { name: prompt, type: string, required: true, maxRecommendedWords: 480 }
+
+  - id: veo-3.1-generate-preview
+    displayName: Veo 3.1
+    provider: gemini
+    family: veo
+    modality: video
+    endpoint: /v1beta/models/{id}:predictLongRunning
+    description: Veo 3.1 — high-fidelity text-to-video and image-to-video with synchronized audio.
+    capabilities:
+      tasks:
+        - text-to-video
+        - image-to-video-first-frame
+        - image-to-video-first-and-last-frames
+      resolutions: [720p, 1080p, 4k]
+      frameRates: [24]
+      durationSeconds: { minimum: 4, maximum: 8 }
+      aspectRatios: [16:9, 9:16]
+      videoFormat: mp4
+      audio: true
+    parameters:
+      - { name: prompt, type: string, required: true, maxRecommendedWords: 200 }
+      - { name: resolution, type: string, required: false, enum: [720p, 1080p, 4k], default: 720p }
+      - { name: ratio, type: string, required: false, enum: [16:9, 9:16], default: 16:9 }
+      - { name: duration, type: integer, required: false, minimum: 4, maximum: 8, default: 8, notes: Veo supports 4, 6, or 8 seconds; other values are coerced to the nearest supported duration. }
+      - { name: generate_audio, type: boolean, required: false, default: true }
+      - { name: negative_prompt, type: string, required: false, maxLength: 2048 }
+      - { name: person_generation, type: string, required: false, enum: [allow_all, allow_adult], default: allow_adult }
+
+  - id: veo-3.1-fast-generate-preview
+    displayName: Veo 3.1 Fast
+    provider: gemini
+    family: veo
+    modality: video
+    endpoint: /v1beta/models/{id}:predictLongRunning
+    description: Veo 3.1 Fast — lower-latency, lower-cost Veo 3.1 variant with synchronized audio.
+    capabilities:
+      tasks:
+        - text-to-video
+        - image-to-video-first-frame
+        - image-to-video-first-and-last-frames
+      resolutions: [720p, 1080p]
+      frameRates: [24]
+      durationSeconds: { minimum: 4, maximum: 8 }
+      aspectRatios: [16:9, 9:16]
+      videoFormat: mp4
+      audio: true
+    parameters:
+      - { name: prompt, type: string, required: true, maxRecommendedWords: 200 }
+      - { name: resolution, type: string, required: false, enum: [720p, 1080p], default: 720p }
+      - { name: ratio, type: string, required: false, enum: [16:9, 9:16], default: 16:9 }
+      - { name: duration, type: integer, required: false, minimum: 4, maximum: 8, default: 8, notes: Veo supports 4, 6, or 8 seconds; other values are coerced to the nearest supported duration. }
+      - { name: generate_audio, type: boolean, required: false, default: true }
+      - { name: negative_prompt, type: string, required: false, maxLength: 2048 }
+      - { name: person_generation, type: string, required: false, enum: [allow_all, allow_adult], default: allow_adult }
+
+  - id: gemini-omni-flash-preview
+    displayName: Gemini Omni Flash
+    provider: gemini
+    family: omni-flash
+    modality: video
+    endpoint: /v1beta/interactions
+    description: Gemini Omni Flash — cost-efficient 720p text-to-video and image-to-video via the Interactions API (public preview).
+    capabilities:
+      tasks:
+        - text-to-video
+        - image-to-video-first-frame
+      resolutions: [720p]
+      frameRates: [24]
+      durationSeconds: { minimum: 3, maximum: 10 }
+      aspectRatios: [16:9, 9:16]
+      videoFormat: mp4
+      audio: false
+    parameters:
+      - { name: prompt, type: string, required: true, maxRecommendedWords: 200 }
+      - { name: resolution, type: string, required: false, enum: [720p], default: 720p }
+      - { name: ratio, type: string, required: false, enum: [16:9, 9:16], default: 16:9 }
+      - { name: duration, type: integer, required: false, minimum: 3, maximum: 10, default: 6 }
