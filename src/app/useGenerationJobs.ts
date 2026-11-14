@@ -182,6 +182,12 @@ export function useGenerationJobs({
           referenceSelections.push({ generationId: generation.id, intent: selectedIntent });
         }
       }
+      if (model.provider === 'byteplus' && model.family === 'seedream' && model.id.includes('seedream-5-0-') && snapshot.ctl.mode === 'image') {
+        for (const reference of snapshot.uploadedReferences ?? []) {
+          if (reference.projectId !== snapshot.activeProjectId) continue;
+          references.push({ id: reference.id, intent: 'image_reference', media: storedMediaAssetPayload(reference.media) });
+        }
+      }
       if (staleReferenceIds.length) dispatchStudio({ type: 'prune-references' });
       dispatchUi({ type: 'api-status', apiStatus: 'Posting generation request…' });
       const response = await api.generate({ ...snapshot.ctl, references, referenceSelections, projectId: snapshot.activeProjectId, sceneId: snapshot.activeSceneId });

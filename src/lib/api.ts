@@ -1,4 +1,4 @@
-import type { GenerationControls, GenerationMedia, GenerationProgress, GenerationReferenceSelection, GenerationStatus, GenerationUsage, ModelsResponse, PresignAssetRole, ReferenceMedia } from '../types';
+import type { GenerationControls, GenerationMedia, GenerationProgress, GenerationReferenceSelection, GenerationStatus, GenerationUsage, ModelsResponse, PresignAssetRole, ReferenceMedia, StoredMediaAsset } from '../types';
 
 export interface GenerateResponse { ok: boolean; jobId: string; status: GenerationStatus; }
 export interface GenerateStatusResponse {
@@ -59,6 +59,17 @@ export const api = {
   },
   models() {
     return jsonFetch<ModelsResponse>('/api/models');
+  },
+  async uploadReference(modelId: string, file: File): Promise<StoredMediaAsset> {
+    let response: Response;
+    try {
+      response = await fetch(`/api/references/upload?modelId=${encodeURIComponent(modelId)}`, { method: 'POST', headers: { 'Content-Type': file.type }, body: file });
+    } catch (error) {
+      throw new Error(`Reference upload failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    const payload = await response.json() as { ok?: boolean; media?: StoredMediaAsset; error?: string; details?: string };
+    if (!response.ok || !payload.media) throw new Error(payload.details ? `${payload.error ?? 'Upload failed'}: ${payload.details}` : payload.error ?? `Upload failed (${response.status})`);
+    return payload.media;
   },
   generate(payload: GenerationControls & { references: ReferenceMedia[]; referenceSelections?: GenerationReferenceSelection[]; projectId: string; sceneId: string | null }) {
     return jsonFetch<GenerateResponse>('/api/generate', { method: 'POST', body: JSON.stringify(payload) });

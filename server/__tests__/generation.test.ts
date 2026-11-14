@@ -4,7 +4,7 @@ import type { Server } from 'node:http';
 import sharp from 'sharp';
 import { createApp } from '../app.js';
 import { supportedReferenceIntentsForModel, validateGenerateRequest } from '../generationValidation.js';
-import { assertContentTypeMatchesKey, contentTypeForKey, createGenerationObjectKey, validateObjectKey } from '../mediaKeys.js';
+import { assertContentTypeMatchesKey, contentTypeForKey, createGenerationObjectKey, createReferenceObjectKey, isUploadedReferenceKey, validateObjectKey } from '../mediaKeys.js';
 import { loadModelCatalog } from '../modelCatalog.js';
 import { ProviderConfigError, endpointIdForModel, hasConfiguredEndpointMapping, type ProviderConfig } from '../providerConfig.js';
 import { BytePlusImageAdapter } from '../provider/byteplusImageAdapter.js';
@@ -144,6 +144,17 @@ describe('request validation', () => {
     assert.throws(() => validateGenerateRequest(validPayload({ params: { 'sequential_image_generation_options.max_images': 2 } }), catalog), /Multiple output images/);
     assert.throws(() => validateGenerateRequest(validPayload({ references: [{ id: 'g1' }] }), catalog), /Invalid request/);
     assert.throws(() => validateGenerateRequest(validPayload({ references: Array.from({ length: 99 }, (_, index) => ({ id: `g${index}`, media: { provider: 'byteplus-tos', key: 'generations/job_1/0123456789abcdef01234567-gen_1.png', contentType: 'image/png', size: 1, createdAt: new Date().toISOString() } })) }), catalog), /Too many references/);
+  });
+
+  it('accepts uploaded image media only for BytePlus Seedream 5 image requests', () => {
+    const key = createReferenceObjectKey('generations', 'image/png');
+    const reference = { id: 'upload-1', intent: 'image_reference', media: { provider: 'byteplus-tos', key, contentType: 'image/png', size: 100, createdAt: new Date().toISOString(), kind: 'image', role: 'primary' } };
+    assert.equal(isUploadedReferenceKey(key, 'generations'), true);
+    assert.equal(validateGenerateRequest(validPayload({ references: [reference] }), catalog).references[0]?.media.key, key);
+    const olderModel = catalog.models.find((model) => model.family === 'seedream' && !model.id.includes('seedream-5-0-'));
+    assert(olderModel);
+    assert.throws(() => validateGenerateRequest(validPayload({ modelId: olderModel.id, ratio: olderModel.capabilities.aspectRatios?.[0], res: olderModel.capabilities.resolutions?.[0], references: [reference] }), catalog), /Unsupported uploaded reference/);
+    assert.throws(() => validateGenerateRequest(videoPayload({ references: [reference] }), catalog), /Unsupported uploaded reference/);
   });
 
   it('accepts catalog-backed BytePlus video requests and forces last-frame thumbnails', () => {
@@ -595,6 +606,35 @@ describe('generation routes', () => {
 
   after(async () => {
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  });
+
+  it('uploads a validated local image to TOS and rejects mismatched bytes and unsupported models', async () => {
+    const image = await sharp({ create: { width: 32, height: 32, channels: 3, background: '#6366f1' } }).png().toBuffer();
+    const before = calls.length;
+    const uploadUrl = `${baseUrl}/api/references/upload?modelId=${encodeURIComponent(imageModel.id)}`;
+    const accepted = await fetch(uploadUrl, { method: 'POST', headers: { 'Content-Type': 'image/png' }, body: image });
+    assert.equal(accepted.status, 201);
+    const result = await accepted.json() as { media: { key: string; contentType: string; width: number; height: number } };
+    assert.equal(isUploadedReferenceKey(result.media.key, 'generations'), true);
+    assert.equal(result.media.contentType, 'image/png');
+    assert.deepEqual([result.media.width, result.media.height], [32, 32]);
+    assert(calls.slice(before).includes(`put:${result.media.key}`));
+
+    const generation = await fetch(`${baseUrl}/api/generate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(validPayload({ references: [{ id: 'local-1', intent: 'image_reference', media: result.media }] })) });
+    assert.equal(generation.status, 202);
+    const queued = await generation.json() as { jobId: string };
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const status = await (await fetch(`${baseUrl}/api/generate/${queued.jobId}/status`)).json() as { status: string };
+      if (status.status === 'complete') break;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    assert(calls.includes(`presign:preview:${result.media.key}`));
+
+    const wrongType = await fetch(uploadUrl, { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: image });
+    assert.equal(wrongType.status, 400);
+    const olderModel = catalog.models.find((model) => model.family === 'seedream' && !model.id.includes('seedream-5-0-'))!;
+    const unsupported = await fetch(`${baseUrl}/api/references/upload?modelId=${olderModel.id}`, { method: 'POST', headers: { 'Content-Type': 'image/png' }, body: image });
+    assert.equal(unsupported.status, 400);
   });
 
   it('returns only configured image models when no video endpoint IDs are configured from /api/models', async () => {
@@ -1118,7 +1158,7 @@ describe('generation routes', () => {
       },
       async getObject(input: GetObjectInput) {
         assert.equal(input.key, imageKey);
-        assert.equal(input.maxBytes, 25 * 1024 * 1024);
+        assert.equal(input.maxBytes, 40 * 1024 * 1024);
         return { body: source, contentType: 'image/jpeg', size: source.length };
       }
     };

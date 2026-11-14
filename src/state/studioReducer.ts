@@ -1,4 +1,4 @@
-import type { AppState, Generation, GenerationControls, GenerationProgress, GenerationReferenceSelection, ModelCatalog, OutputMode, Project, VideoReferenceIntent } from '../types';
+import type { AppState, Generation, GenerationControls, GenerationProgress, GenerationReferenceSelection, ModelCatalog, OutputMode, Project, UploadedReference, VideoReferenceIntent } from '../types';
 import { defaultControls } from '../lib/data';
 import { normalizeControls, normalizeStateForCatalog, type ParamPatch } from '../lib/modelCatalog';
 import { activeProject } from './studioSelectors';
@@ -19,6 +19,8 @@ export type StudioAction =
   | { type: 'move-scene'; fromId: string; toId: string }
   | { type: 'set-reference-intent'; generationId: string; intent: VideoReferenceIntent }
   | { type: 'prune-references' }
+  | { type: 'add-uploaded-reference'; reference: UploadedReference }
+  | { type: 'remove-uploaded-reference'; referenceId: string }
   | { type: 'toggle-reference'; generationId: string; intent: VideoReferenceIntent }
   | { type: 'toggle-preferred'; sceneId: string; generationId: string }
   | { type: 'insert-generation'; generation: Generation; seq: number }
@@ -48,9 +50,10 @@ export function studioReducer(state: AppState, action: StudioAction): AppState {
     }
     case 'delete-project': {
       const projects = state.projects.filter((item) => item.id !== action.projectId);
-      if (state.activeProjectId !== action.projectId) return pruneReferences({ ...state, projects });
+      const uploadedReferences = (state.uploadedReferences ?? []).filter((reference) => reference.projectId !== action.projectId);
+      if (state.activeProjectId !== action.projectId) return pruneReferences({ ...state, projects, uploadedReferences });
       const next = projects[0] ?? null;
-      return pruneReferences({ ...state, projects, activeProjectId: next?.id ?? null, activeSceneId: next?.scenes[0]?.id ?? null });
+      return pruneReferences({ ...state, projects, uploadedReferences, activeProjectId: next?.id ?? null, activeSceneId: next?.scenes[0]?.id ?? null });
     }
     case 'add-scene':
       return {
@@ -95,6 +98,10 @@ export function studioReducer(state: AppState, action: StudioAction): AppState {
       return setReferenceIntent(state, action.generationId, action.intent);
     case 'prune-references':
       return pruneReferences(state);
+    case 'add-uploaded-reference':
+      return { ...state, uploadedReferences: [...(state.uploadedReferences ?? []), action.reference] };
+    case 'remove-uploaded-reference':
+      return { ...state, uploadedReferences: (state.uploadedReferences ?? []).filter((reference) => reference.id !== action.referenceId) };
     case 'toggle-reference':
       return state.refIds.includes(action.generationId)
         ? {

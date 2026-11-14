@@ -203,6 +203,13 @@ export interface Project {
   scenes: Scene[];
 }
 
+export interface UploadedReference {
+  id: string;
+  projectId: string;
+  name: string;
+  media: StoredMediaAsset;
+}
+
 export interface AppState {
   version: 1;
   seq: number;
@@ -210,6 +217,7 @@ export interface AppState {
   activeProjectId: string | null;
   activeSceneId: string | null;
   refIds: string[];
+  uploadedReferences?: UploadedReference[];
   referenceSelections?: GenerationReferenceSelection[];
   ctl: GenerationControls;
 }

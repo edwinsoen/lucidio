@@ -13,13 +13,14 @@ import { VideoProviderError, type VideoGenerationAdapter, type VideoReferenceInp
 import { endpointRefForModel, geminiConfigOrThrow, hasConfiguredModel, loadProviderConfig, ProviderConfigError, type ProviderConfig } from './providerConfig.js';
 import { RequestValidationError, supportedReferenceIntentsForModel, validateGenerateRequest } from './generationValidation.js';
 import { JobStore } from './jobs.js';
-import { assertContentTypeMatchesKey, contentTypeForKey, createGenerationObjectKey, filenameForKey, isImageContentType, isVideoContentType, validateObjectKey } from './mediaKeys.js';
+import { assertContentTypeMatchesKey, contentTypeForKey, createGenerationObjectKey, createReferenceObjectKey, filenameForKey, isImageContentType, isVideoContentType, validateObjectKey } from './mediaKeys.js';
 import { BytePlusTosStorageAdapter } from './storage/byteplusTosStorage.js';
 import type { ObjectStorageAdapter } from './storage/storageAdapter.js';
 
 const THUMBNAIL_MAX_EDGE_PX = 320;
-const THUMBNAIL_SOURCE_MAX_BYTES = 25 * 1024 * 1024;
+const THUMBNAIL_SOURCE_MAX_BYTES = 40 * 1024 * 1024;
 const THUMBNAIL_WEBP_QUALITY = 78;
+const REFERENCE_MAX_BYTES = 30 * 1024 * 1024;
 type GenerationModality = 'image' | 'video';
 
 export interface AppDependencies {
@@ -103,6 +104,34 @@ export function createApp(deps: AppDependencies = {}) {
   });
 
   app.post('/api/auth/logout', (_req, res) => { res.json({ ok: true }); });
+
+  app.post('/api/references/upload', express.raw({ type: ['image/jpeg', 'image/png', 'image/webp'], limit: REFERENCE_MAX_BYTES }), async (req, res) => {
+    try {
+      const modelId = req.query.modelId;
+      const model = typeof modelId === 'string' ? catalog().models.find((item) => item.id === modelId) : undefined;
+      if (!model || model.provider !== 'byteplus' || model.family !== 'seedream' || model.modality !== 'image' || !model.id.includes('seedream-5-0-') || !hasConfiguredModel(config(), model)) {
+        throw new RequestValidationError('Unsupported model', 'Local image uploads are supported only by configured BytePlus Seedream 5 models.');
+      }
+      const contentType = req.headers['content-type']?.split(';', 1)[0]?.toLowerCase();
+      if (!contentType || !['image/jpeg', 'image/png', 'image/webp'].includes(contentType) || !Buffer.isBuffer(req.body) || req.body.length === 0) {
+        throw new RequestValidationError('Invalid reference image', 'Select a JPEG, PNG, or WebP image.');
+      }
+      const body = req.body as Buffer;
+      const metadata = await sharp(body, { limitInputPixels: 36_000_000 }).metadata().catch(() => null);
+      const actualType = metadata?.format === 'jpeg' ? 'image/jpeg' : metadata?.format === 'png' ? 'image/png' : metadata?.format === 'webp' ? 'image/webp' : null;
+      const width = metadata?.width ?? 0;
+      const height = metadata?.height ?? 0;
+      if (actualType !== contentType || width <= 14 || height <= 14 || width * height > 36_000_000 || width / height < 1 / 16 || width / height > 16) {
+        throw new RequestValidationError('Invalid reference image', 'Image content and type must match, with dimensions over 14 px, at most 36 MP, and aspect ratio from 1:16 to 16:1.');
+      }
+      const cfg = config();
+      const key = createReferenceObjectKey(cfg.storage.byteplusTos.keyPrefix, contentType);
+      const media = await storage().putObject({ key, body, contentType });
+      res.status(201).json({ ok: true, media: { ...media, kind: 'image', role: 'primary', width, height } });
+    } catch (error) {
+      respondKnownError(res, error);
+    }
+  });
 
   app.post('/api/generate', (req, res) => {
     try {
@@ -231,6 +260,13 @@ export function createApp(deps: AppDependencies = {}) {
 
   app.get('/api/download/:generationId', (_req, res) => {
     res.status(410).json(apiError('Legacy download endpoint retired', 'Use POST /api/media/presign with a generation media object key.'));
+  });
+
+  app.use('/api', (error: unknown, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (error instanceof Error && 'status' in error && error.status === 413) {
+      return res.status(413).json(apiError('Reference image too large', 'Choose an image up to 30 MB.', 'validation_error'));
+    }
+    next(error);
   });
 
   const staticDir = deps.staticDir ?? path.resolve(process.cwd(), 'dist');

@@ -114,6 +114,10 @@ textarea:focus, select:focus, .seed-box:focus-within, .param-number:focus { bord
 .ref-intent { width: 138px; height: 38px; border-radius: 8px; padding: 0 8px; font-size: 13px; color: var(--color-text-soft); background: var(--color-control-muted); }
 .ref-intent-label { color: var(--color-text-subtle); font-size: 13px; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .empty-ref { font-size: 13px; color: var(--color-text-dim); border: 1px dashed var(--color-border-strong); border-radius: 8px; padding: 9px 11px; line-height: 1.45; }
+.reference-file-input { display: none; }
+.add-local-reference { display: inline-flex; align-items: center; gap: 7px; margin-top: 9px; padding: 7px 10px; border: 1px solid var(--color-border-strong); border-radius: 7px; background: var(--color-control); color: var(--color-text-soft); cursor: pointer; font: inherit; font-size: 12px; }
+.add-local-reference:hover:not(:disabled) { border-color: #5457e6; color: #dcdcfb; }
+.add-local-reference:disabled { opacity: .6; cursor: wait; }
 .rule { height: 1px; background: #21212a; }
 .chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .chips button { min-width: 48px; height: 30px; padding: 0 11px; border-radius: 7px; cursor: pointer; font-size: 13.5px; font-weight: 600; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--color-control); color: var(--color-text-muted); border: 1px solid var(--color-border-strong); }

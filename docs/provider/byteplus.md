@@ -100,7 +100,9 @@ Cancellation updates local job state immediately. For active video jobs, the bac
 
 ## References
 
-References must be existing Lucidio-generated media metadata. Raw URLs, files, blobs, and data URLs are rejected at the API boundary.
+References can be existing Lucidio-generated media metadata. For configured BytePlus Seedream 5 image models, the References section also accepts a local JPEG, PNG, or WebP image. The browser sends the image to `POST /api/references/upload?modelId=...`; the backend validates its type, dimensions, aspect ratio, and 30 MB size limit before storing it in the configured TOS bucket. Upload metadata is saved in IndexedDB for the active project. Generation uses a short-lived presigned URL for the stored object. Raw URLs, files, blobs, and data URLs are rejected by the generation API.
+
+Removing an uploaded reference or deleting its project removes its local metadata. The TOS object is retained because a queued generation may still need it; bucket lifecycle rules can expire unused uploads.
 
 Supported video reference intents are derived from the selected model capabilities:
 
@@ -133,7 +135,7 @@ Local object keys are unguessable capability references for this local-first she
 
 This provider pass intentionally does not add:
 
-- upload UI or arbitrary external reference URLs.
+- arbitrary external reference URLs or local uploads for other model families.
 - backend database persistence.
 - public object URLs.
 - non-BytePlus providers.

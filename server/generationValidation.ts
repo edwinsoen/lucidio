@@ -1,6 +1,6 @@
 import type { CatalogValue, ModelCatalog, ModelCatalogEntry, ParameterDescriptor } from './modelCatalog.js';
 import type { GenerateRequest, GenerationProviderTask, GenerationReferenceSelection, ReferenceMedia, StoredMediaAsset, VideoReferenceIntent } from './contracts.js';
-import { assertContentTypeMatchesKey, isImageContentType, isVideoContentType, normalizeContentType, validateObjectKey } from './mediaKeys.js';
+import { assertContentTypeMatchesKey, isImageContentType, isUploadedReferenceKey, isVideoContentType, normalizeContentType, validateObjectKey } from './mediaKeys.js';
 
 export class RequestValidationError extends Error {
   constructor(message: string, public readonly details?: string) {
@@ -241,6 +241,9 @@ function validateImageReferences(value: unknown[], model: ModelCatalogEntry, med
     const id = stringValue(ref.id, `references[${index}].id`);
     const media = validateMediaAsset(ref.media, `references[${index}].media`, mediaKeyPrefix);
     if (!isImageContentType(media.contentType)) throw new RequestValidationError('Invalid reference media', `references[${index}].media.contentType must be an image content type.`);
+    if (isUploadedReferenceKey(media.key, mediaKeyPrefix) && !(model.provider === 'byteplus' && model.family === 'seedream' && model.id.includes('seedream-5-0-'))) {
+      throw new RequestValidationError('Unsupported uploaded reference', 'Local image references are supported only by BytePlus Seedream 5 models.');
+    }
     const intent = ref.intent === undefined ? undefined : videoReferenceIntent(ref.intent, `references[${index}].intent`);
     if (intent && intent !== 'image_reference') throw new RequestValidationError('Invalid reference intent', 'Image generation references only support image_reference intent.');
     return { id, intent, media };
@@ -256,6 +259,7 @@ function validateVideoReferences(value: unknown[], model: ModelCatalogEntry, med
     const intent = videoReferenceIntent(ref.intent, `${label}.intent`);
     if (!supported.includes(intent)) throw new RequestValidationError('Unsupported reference intent', `${intent} is not supported by ${model.displayName}.`);
     const media = validateMediaAsset(ref.media, `${label}.media`, mediaKeyPrefix);
+    if (isUploadedReferenceKey(media.key, mediaKeyPrefix)) throw new RequestValidationError('Unsupported uploaded reference', 'Local image references are supported only by BytePlus Seedream 5 models.');
     const thumbnail = ref.thumbnail === undefined ? undefined : validateMediaAsset(ref.thumbnail, `${label}.thumbnail`, mediaKeyPrefix);
     const providerTask = ref.providerTask === undefined ? undefined : validateProviderTask(ref.providerTask, `${label}.providerTask`);
 

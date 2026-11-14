@@ -10,6 +10,7 @@ import { initialUiState, uiReducer } from '../state/uiReducer';
 import { useGenerationJobs } from './useGenerationJobs';
 import { useMediaUrls } from './useMediaUrls';
 import { useStudioBootstrap } from './useStudioBootstrap';
+import { api } from '../lib/api';
 
 export function useStudio() {
   const [state, dispatchStudio] = useReducer(studioReducer, undefined, buildDefaultState);
@@ -38,6 +39,34 @@ export function useStudio() {
   }, [modelCatalog]);
 
   const [generating, setGenerating] = useState(false);
+  const [uploadingReference, setUploadingReference] = useState(false);
+  const uploadingReferenceRef = useRef(false);
+  const uploadReference = useCallback(async (file: File) => {
+    if (uploadingReferenceRef.current || !project || !currentModel || currentModel.provider !== 'byteplus' || currentModel.family !== 'seedream' || !currentModel.id.includes('seedream-5-0-')) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size === 0 || file.size > 30 * 1024 * 1024) {
+      dispatchUi({ type: 'api-status', apiStatus: 'Choose a JPEG, PNG, or WebP image up to 30 MB.' });
+      return;
+    }
+    const selectedCount = refs.length + (state.uploadedReferences ?? []).filter((reference) => reference.projectId === project.id).length;
+    const maxReferences = currentModel.capabilities.maxReferenceImages ?? 10;
+    if (selectedCount >= maxReferences) {
+      dispatchUi({ type: 'api-status', apiStatus: `${currentModel.displayName} supports at most ${maxReferences} reference images.` });
+      return;
+    }
+    uploadingReferenceRef.current = true;
+    setUploadingReference(true);
+    dispatchUi({ type: 'api-status', apiStatus: `Uploading ${file.name}…` });
+    try {
+      const media = await api.uploadReference(currentModel.id, file);
+      dispatchStudio({ type: 'add-uploaded-reference', reference: { id: crypto.randomUUID(), projectId: project.id, name: file.name, media } });
+      dispatchUi({ type: 'api-status', apiStatus: `Reference added: ${file.name}` });
+    } catch (error) {
+      dispatchUi({ type: 'api-status', apiStatus: `Reference upload failed: ${error instanceof Error ? error.message : String(error)}` });
+    } finally {
+      uploadingReferenceRef.current = false;
+      setUploadingReference(false);
+    }
+  }, [currentModel, project, refs.length, state.uploadedReferences]);
   const generatingRef = useRef(false);
 
   const runGenerate = useCallback(async () => {
@@ -120,6 +149,10 @@ export function useStudio() {
       controls: state.ctl,
       currentModel,
       references: refs,
+      uploadedReferences: currentModel?.provider === 'byteplus' && currentModel.family === 'seedream' && currentModel.id.includes('seedream-5-0-')
+        ? (state.uploadedReferences ?? []).filter((reference) => reference.projectId === project?.id)
+        : [],
+      uploadingReference,
       referenceSelections: state.referenceSelections ?? [],
       mediaUrls,
       apiStatus: ui.apiStatus,
@@ -131,6 +164,8 @@ export function useStudio() {
       onControls: setControls,
       onReferenceIntent: setReferenceIntent,
       onRemoveRef: toggleReference,
+      onUploadReference: uploadReference,
+      onRemoveUploadedReference: (referenceId: string) => dispatchStudio({ type: 'remove-uploaded-reference', referenceId }),
       onGenerate: runGenerate,
       onResolveMediaUrl: ensureMediaUrl
     },

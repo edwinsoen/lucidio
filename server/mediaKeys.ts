@@ -59,6 +59,20 @@ export function createGenerationObjectKey(prefix: string, jobId: string, generat
   return `${sanitizePrefix(prefix)}/${sanitizeId(jobId)}/${token}-${sanitizeId(generationId)}.${ext}`;
 }
 
+export function createReferenceObjectKey(prefix: string, contentType: string): string {
+  const ext = extensionForContentType(contentType);
+  return `${sanitizePrefix(prefix)}/reference/${crypto.randomBytes(12).toString('hex')}-${crypto.randomUUID()}.${ext}`;
+}
+
+export function isUploadedReferenceKey(key: string, prefix: string): boolean {
+  try {
+    validateObjectKey(key, prefix);
+    return key.startsWith(`${sanitizePrefix(prefix)}/reference/`);
+  } catch {
+    return false;
+  }
+}
+
 export function validateObjectKey(key: string, prefix = 'generations'): void {
   const safePrefix = sanitizePrefix(prefix);
   if (!key || key.startsWith('/') || key.includes('..') || /^https?:\/\//i.test(key) || key.includes('\\')) throw new Error('Invalid media key');

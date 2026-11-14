@@ -75,6 +75,7 @@ export function buildDefaultState(): AppState {
     activeProjectId: projectId,
     activeSceneId: sceneId,
     refIds: [],
+    uploadedReferences: [],
     referenceSelections: [],
     ctl: { ...defaultControls }
   };
@@ -85,6 +86,7 @@ export function normalizeStoredState(stored: AppState): AppState {
     ...stored,
     projects: Array.isArray(stored.projects) ? stored.projects.map(normalizeProject) : [],
     refIds: Array.isArray(stored.refIds) ? stored.refIds : [],
+    uploadedReferences: Array.isArray(stored.uploadedReferences) ? stored.uploadedReferences : [],
     referenceSelections: Array.isArray(stored.referenceSelections) ? stored.referenceSelections : [],
     ctl: {
       ...defaultControls,
