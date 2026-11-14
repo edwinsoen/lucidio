@@ -6,20 +6,52 @@ import { readCachedThumbnail, writeCachedThumbnail } from '../lib/thumbnailCache
 import type { UiAction } from '../state/uiReducer';
 
 export type MediaPurpose = 'thumbnail' | 'preview' | 'download';
+export type ResolveMediaUrl = (generation: Generation, purpose?: MediaPurpose, role?: PresignAssetRole, force?: boolean) => Promise<string | null>;
 export type MediaUrlCache = Record<string, { url: string; expiresAt?: string; key: string; role: PresignAssetRole; purpose: Exclude<MediaPurpose, 'download'> }>;
+
+const URL_REFRESH_MARGIN_MS = 10_000;
+
+function isUsable(entry: MediaUrlCache[string] | undefined, now = Date.now()): boolean {
+  return Boolean(entry && (!entry.expiresAt || Date.parse(entry.expiresAt) - now > URL_REFRESH_MARGIN_MS));
+}
+
+export function mediaUrlFromCache(cache: MediaUrlCache, key: string, now = Date.now()): string | undefined {
+  const entry = cache[key];
+  return isUsable(entry, now) ? entry.url : undefined;
+}
 
 export function useMediaUrls(dispatchUi: React.Dispatch<UiAction>) {
   const [mediaUrls, setMediaUrls] = useState<MediaUrlCache>({});
   const mediaUrlsRef = useRef<MediaUrlCache>({});
   const objectUrlsRef = useRef(new Map<string, string>());
   const thumbnailRequestsRef = useRef(new Map<string, Promise<string | null>>());
+  const expiryTimersRef = useRef(new Map<string, number>());
 
   useEffect(() => () => {
     for (const url of objectUrlsRef.current.values()) URL.revokeObjectURL(url);
     objectUrlsRef.current.clear();
+    for (const timer of expiryTimersRef.current.values()) window.clearTimeout(timer);
+    expiryTimersRef.current.clear();
   }, []);
 
   const setCacheEntry = useCallback((cacheKey: string, entry: MediaUrlCache[string]) => {
+    const previousTimer = expiryTimersRef.current.get(cacheKey);
+    if (previousTimer !== undefined) window.clearTimeout(previousTimer);
+    expiryTimersRef.current.delete(cacheKey);
+    if (entry.expiresAt) {
+      const delay = Math.max(0, Date.parse(entry.expiresAt) - Date.now() - URL_REFRESH_MARGIN_MS);
+      const timer = window.setTimeout(() => {
+        expiryTimersRef.current.delete(cacheKey);
+        setMediaUrls((current) => {
+          if (current[cacheKey]?.url !== entry.url) return current;
+          const next = { ...current };
+          delete next[cacheKey];
+          mediaUrlsRef.current = next;
+          return next;
+        });
+      }, delay);
+      expiryTimersRef.current.set(cacheKey, timer);
+    }
     setMediaUrls((current) => {
       const next = { ...current, [cacheKey]: entry };
       mediaUrlsRef.current = next;
@@ -35,18 +67,18 @@ export function useMediaUrls(dispatchUi: React.Dispatch<UiAction>) {
     return url;
   }, []);
 
-  const ensureMediaUrl = useCallback(async (generation: Generation, purpose: MediaPurpose = 'preview', role: PresignAssetRole = 'primary') => {
+  const ensureMediaUrl: ResolveMediaUrl = useCallback(async (generation: Generation, purpose: MediaPurpose = 'preview', role: PresignAssetRole = 'primary', force = false) => {
     const asset = mediaAssetForRole(generation, role);
     if (!asset) return null;
     const cacheKey = mediaUrlCacheKey(generation, role, purpose);
     const cached = mediaUrlsRef.current[cacheKey];
     if (purpose === 'thumbnail') {
-      if (cached?.key === asset.key && cached.purpose === 'thumbnail') return cached.url;
+      if (!force && cached?.key === asset.key && cached.purpose === 'thumbnail' && isUsable(cached)) return cached.url;
       const existing = thumbnailRequestsRef.current.get(cacheKey);
       if (existing) return existing;
       const request = (async () => {
         try {
-          const local = await readCachedThumbnail(asset);
+          const local = force ? null : await readCachedThumbnail(asset);
           if (local) {
             const url = rememberObjectUrl(cacheKey, local);
             setCacheEntry(cacheKey, { url, key: asset.key, role, purpose: 'thumbnail' });
@@ -68,7 +100,7 @@ export function useMediaUrls(dispatchUi: React.Dispatch<UiAction>) {
       thumbnailRequestsRef.current.set(cacheKey, request);
       return request;
     }
-    if (purpose === 'preview' && cached?.key === asset.key && cached.expiresAt && Date.parse(cached.expiresAt) - Date.now() > 60_000) return cached.url;
+    if (!force && purpose === 'preview' && cached?.key === asset.key && isUsable(cached)) return cached.url;
     const signed = await api.presign({ key: asset.key, purpose, filename: generationFilename(generation), contentType: asset.contentType, assetRole: role });
     if (purpose === 'preview') setCacheEntry(cacheKey, { url: signed.url, expiresAt: signed.expiresAt, key: asset.key, role, purpose: 'preview' });
     return signed.url;

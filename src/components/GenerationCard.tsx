@@ -1,10 +1,12 @@
 import { useEffect, type KeyboardEvent, type MouseEvent } from 'react';
 import { Download, Orbit, Star, Trash2, Volume2, VolumeX } from 'lucide-react';
-import type { Generation, ModelCatalog, PresignAssetRole } from '../types';
+import type { Generation, ModelCatalog } from '../types';
+import type { ResolveMediaUrl } from '../app/useMediaUrls';
 import type { GalleryViewMode } from '../state/uiReducer';
 import { fmtDur, palStyle } from '../lib/data';
 import { generationFailureLabel, generationProgressLabel, generationStatusLabel, previewAssetRole } from '../lib/generationMedia';
 import { modelById, modelName } from '../lib/modelCatalog';
+import { useRecoveringMediaUrl } from '../lib/useRecoveringMediaUrl';
 
 interface GenerationCardProps {
   catalog: ModelCatalog | null;
@@ -14,7 +16,7 @@ interface GenerationCardProps {
   isRef: boolean;
   confirming: boolean;
   mediaUrl?: string;
-  onResolveMediaUrl: (generation: Generation, purpose?: 'thumbnail' | 'preview' | 'download', role?: PresignAssetRole) => Promise<string | null>;
+  onResolveMediaUrl: ResolveMediaUrl;
   onPreview: (generationId: string) => void;
   onTogglePreferred: (sceneId: string, generationId: string) => void;
   onToggleReference: (generationId: string) => void;
@@ -50,6 +52,7 @@ export function GenerationCard({
   const hasStatusOverlay = pending || failed;
   const pendingVideoList = isList && isVideo && pending;
   const previewRole = previewAssetRole(generation);
+  const thumbnailMedia = useRecoveringMediaUrl(generation, mediaUrl, 'thumbnail', previewRole, onResolveMediaUrl);
   const progressLabel = generationProgressLabel(generation);
   const failureLabel = generationFailureLabel(generation);
   const imageStatusLabel = failed ? generationStatusLabel(generation.status) : pending ? progressLabel : generationStatusLabel(generation.status);
@@ -85,7 +88,7 @@ export function GenerationCard({
       }}
       aria-label="Preview generation"
     >
-      {mediaUrl && <img className="media-img" src={mediaUrl} alt={generation.prompt} />}
+      {thumbnailMedia.visibleUrl && <img className="media-img" src={thumbnailMedia.visibleUrl} alt={generation.prompt} onError={thumbnailMedia.onError} />}
       {pendingVideoList && (
         <div className="status-overlay progress-only">
           <span className="status-spinner" aria-hidden="true" />

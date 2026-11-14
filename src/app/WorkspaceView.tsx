@@ -1,5 +1,5 @@
-import type { Generation, ModelCatalog, PresignAssetRole, Project, Scene } from '../types';
-import type { MediaUrlCache } from './useMediaUrls';
+import type { Generation, ModelCatalog, Project, Scene } from '../types';
+import type { MediaUrlCache, ResolveMediaUrl } from './useMediaUrls';
 import type { GalleryViewMode, UiState } from '../state/uiReducer';
 import { WorkspaceHeader } from '../components/WorkspaceHeader';
 import { SceneBlock } from '../components/SceneBlock';
@@ -34,7 +34,7 @@ export interface WorkspaceViewProps {
   onCancelDeleteGeneration: () => void;
   onDeleteGeneration: (sceneId: string, generationId: string) => void;
   onDownload: (generation: Generation) => void;
-  onResolveMediaUrl: (generation: Generation, purpose?: 'thumbnail' | 'preview' | 'download', role?: PresignAssetRole) => Promise<string | null>;
+  onResolveMediaUrl: ResolveMediaUrl;
   onAddScene: () => void;
   onCreateInScene: (sceneId: string) => void;
 }

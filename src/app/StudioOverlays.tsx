@@ -1,7 +1,7 @@
-import type { Generation, ModelCatalog, PresignAssetRole, Project } from '../types';
+import type { Generation, ModelCatalog, Project } from '../types';
 import type { GenerationEntry } from '../state/studioSelectors';
 import { mediaUrlCacheKey } from '../lib/generationMedia';
-import type { MediaUrlCache } from './useMediaUrls';
+import { mediaUrlFromCache, type MediaUrlCache, type ResolveMediaUrl } from './useMediaUrls';
 import { ProjectDeleteDialog } from '../components/ProjectDeleteDialog';
 import { PreviewModal } from '../components/PreviewModal';
 
@@ -16,7 +16,7 @@ export interface StudioOverlaysProps {
   confirmingDeleteGenerationId: string | null;
   onCancelDeleteProject: () => void;
   onConfirmDeleteProject: () => void;
-  onResolveMediaUrl: (generation: Generation, purpose?: 'thumbnail' | 'preview' | 'download', role?: PresignAssetRole) => Promise<string | null>;
+  onResolveMediaUrl: ResolveMediaUrl;
   onNavigatePreview: (generationId: string) => void;
   onClosePreview: () => void;
   onTogglePreferred: (sceneId: string, generationId: string) => void;
@@ -38,8 +38,8 @@ export function StudioOverlays(props: StudioOverlaysProps) {
       {props.preview && <PreviewModal
         catalog={props.catalog}
         entry={props.preview}
-        mediaUrl={props.mediaUrls[mediaUrlCacheKey(props.preview.generation, 'primary')]?.url}
-        posterUrl={props.mediaUrls[mediaUrlCacheKey(props.preview.generation, 'thumbnail', 'thumbnail')]?.url}
+        mediaUrl={mediaUrlFromCache(props.mediaUrls, mediaUrlCacheKey(props.preview.generation, 'primary'))}
+        posterUrl={mediaUrlFromCache(props.mediaUrls, mediaUrlCacheKey(props.preview.generation, 'thumbnail', 'thumbnail'))}
         previousGenerationId={props.previousGenerationId}
         nextGenerationId={props.nextGenerationId}
         confirmingDelete={props.confirmingDeleteGenerationId === props.preview.generation.id}
