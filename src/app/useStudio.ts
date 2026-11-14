@@ -2,7 +2,7 @@ import { useCallback, useMemo, useReducer, useRef, useState } from 'react';
 import type { Generation, GenerationControls, OutputMode, VideoReferenceIntent } from '../types';
 import type { GalleryViewMode } from '../state/uiReducer';
 import { buildDefaultState, makeId } from '../lib/data';
-import { firstModel, modelById, type ParamPatch } from '../lib/modelCatalog';
+import { firstModel, modelById, supportsLocalReferenceUpload, type ParamPatch } from '../lib/modelCatalog';
 import { deleteGenerationThumbnails } from '../lib/thumbnailCache';
 import { activeProject, activeScene, generationIndex, previewNavigation, selectedReferenceGenerations } from '../state/studioSelectors';
 import { nextSequence, studioReducer } from '../state/studioReducer';
@@ -42,7 +42,7 @@ export function useStudio() {
   const [uploadingReference, setUploadingReference] = useState(false);
   const uploadingReferenceRef = useRef(false);
   const uploadReference = useCallback(async (file: File) => {
-    if (uploadingReferenceRef.current || !project || !currentModel || currentModel.provider !== 'byteplus' || currentModel.family !== 'seedream' || !currentModel.id.includes('seedream-5-0-')) return;
+    if (uploadingReferenceRef.current || !project || !currentModel || !supportsLocalReferenceUpload(currentModel)) return;
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size === 0 || file.size > 30 * 1024 * 1024) {
       dispatchUi({ type: 'api-status', apiStatus: 'Choose a JPEG, PNG, or WebP image up to 30 MB.' });
       return;
@@ -149,7 +149,7 @@ export function useStudio() {
       controls: state.ctl,
       currentModel,
       references: refs,
-      uploadedReferences: currentModel?.provider === 'byteplus' && currentModel.family === 'seedream' && currentModel.id.includes('seedream-5-0-')
+      uploadedReferences: supportsLocalReferenceUpload(currentModel)
         ? (state.uploadedReferences ?? []).filter((reference) => reference.projectId === project?.id)
         : [],
       uploadingReference,

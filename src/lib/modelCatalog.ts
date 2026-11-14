@@ -9,6 +9,7 @@ const ADVANCED_PARAM_NAMES = [
   'watermark',
   'frames',
   'output_format',
+  'background',
   'optimize_prompt_options.mode',
   'priority',
   'negative_prompt',
@@ -68,6 +69,10 @@ export function supportsCamera(model: ModelCatalogEntry | null): boolean {
 
 export function supportsAudio(model: ModelCatalogEntry | null): boolean {
   return Boolean(model?.capabilities.audio || hasParameter(model, 'generate_audio'));
+}
+
+export function supportsLocalReferenceUpload(model: ModelCatalogEntry | null | undefined): boolean {
+  return Boolean(model && model.provider === 'byteplus' && model.family === 'seedream' && model.id.includes('seedream-5-'));
 }
 
 export function advancedParameters(model: ModelCatalogEntry | null): ParameterDescriptor[] {
@@ -168,6 +173,7 @@ export function normalizeControls(catalog: ModelCatalog | null, ctl: GenerationC
   if (!supportsSeed(model)) next.seed = '';
   if (!supportsGuidance(model)) next.guidance = 7;
   if (next.params.draft === true && (model.capabilities.resolutions ?? []).includes('480p')) next.res = '480p';
+  if (next.params.background === 'transparent' && (model.capabilities.outputFormats ?? []).includes('png')) next.params.output_format = 'png';
   return next;
 }
 

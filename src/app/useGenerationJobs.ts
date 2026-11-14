@@ -3,7 +3,7 @@ import type { AppState, Generation, GenerationReferenceSelection, ModelCatalog, 
 import { api, type GenerateStatusResponse } from '../lib/api';
 import { PALS } from '../lib/data';
 import { generationStatusLabel, isImageAsset, isVideoAsset, storedMediaAssetPayload } from '../lib/generationMedia';
-import { modeLabel, modelById } from '../lib/modelCatalog';
+import { modeLabel, modelById, supportsLocalReferenceUpload } from '../lib/modelCatalog';
 import { notifyGenerationComplete, requestGenerationNotificationPermission } from '../lib/notifications';
 import { recordUsage } from '../lib/usageMeter';
 import { defaultReferenceIntent, referenceIntentOptions } from '../lib/referenceIntents';
@@ -182,7 +182,7 @@ export function useGenerationJobs({
           referenceSelections.push({ generationId: generation.id, intent: selectedIntent });
         }
       }
-      if (model.provider === 'byteplus' && model.family === 'seedream' && model.id.includes('seedream-5-0-') && snapshot.ctl.mode === 'image') {
+      if (supportsLocalReferenceUpload(model) && snapshot.ctl.mode === 'image') {
         for (const reference of snapshot.uploadedReferences ?? []) {
           if (reference.projectId !== snapshot.activeProjectId) continue;
           references.push({ id: reference.id, intent: 'image_reference', media: storedMediaAssetPayload(reference.media) });

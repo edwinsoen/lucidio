@@ -4,7 +4,7 @@ import type { Generation, GenerationControls, GenerationReferenceSelection, Mode
 import { api } from '../lib/api';
 import { mediaUrlFromCache, type MediaUrlCache, type ResolveMediaUrl } from '../app/useMediaUrls';
 import { palStyle } from '../lib/data';
-import { advancedParameters, modeLabel, modelsForMode, supportsAudio, supportsCamera, supportsGuidance, supportsSeed } from '../lib/modelCatalog';
+import { advancedParameters, modeLabel, modelsForMode, supportsAudio, supportsCamera, supportsGuidance, supportsLocalReferenceUpload, supportsSeed } from '../lib/modelCatalog';
 import type { ParamPatch } from '../lib/modelCatalog';
 import { mediaUrlCacheKey, previewAssetRole } from '../lib/generationMedia';
 import { defaultReferenceIntent, referenceIntentLabel, referenceIntentOptions } from '../lib/referenceIntents';
@@ -35,7 +35,7 @@ export function Sidebar({ catalog, controls, currentModel, references, uploadedR
   onResolveMediaUrl: ResolveMediaUrl;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const canUploadReference = currentModel?.provider === 'byteplus' && currentModel.family === 'seedream' && currentModel.id.includes('seedream-5-0-');
+  const canUploadReference = supportsLocalReferenceUpload(currentModel);
   const imageModels = modelsForMode(catalog, 'image');
   const videoModels = modelsForMode(catalog, 'video');
   const modelOptions = modelsForMode(catalog, controls.mode);

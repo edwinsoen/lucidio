@@ -109,7 +109,7 @@ export function createApp(deps: AppDependencies = {}) {
     try {
       const modelId = req.query.modelId;
       const model = typeof modelId === 'string' ? catalog().models.find((item) => item.id === modelId) : undefined;
-      if (!model || model.provider !== 'byteplus' || model.family !== 'seedream' || model.modality !== 'image' || !model.id.includes('seedream-5-0-') || !hasConfiguredModel(config(), model)) {
+      if (!model || model.provider !== 'byteplus' || model.family !== 'seedream' || model.modality !== 'image' || !model.id.includes('seedream-5-') || !hasConfiguredModel(config(), model)) {
         throw new RequestValidationError('Unsupported model', 'Local image uploads are supported only by configured BytePlus Seedream 5 models.');
       }
       const contentType = req.headers['content-type']?.split(';', 1)[0]?.toLowerCase();

@@ -3,7 +3,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { buildDefaultState } from '../lib/data';
-import type { AppState, Generation, GenerationMedia } from '../types';
+import { normalizeControls, supportsLocalReferenceUpload } from '../lib/modelCatalog';
+import type { AppState, Generation, GenerationMedia, ModelCatalog } from '../types';
 import { nextSequence, queuedGenerationFromControls, studioReducer } from './studioReducer';
 import { activeProject, activeScene, generationIndex, previewNavigation, selectedReferenceGenerations } from './studioSelectors';
 
@@ -148,5 +149,43 @@ describe('studio reducer', () => {
     assert.equal(queued?.jobId, 'job_1');
     assert.equal(queued?.status, 'queued');
     assert.equal(queued?.pal, 3);
+  });
+
+  it('coerces output_format to png when Seedream 5.5 background is transparent and enables local reference uploads', () => {
+    const catalog: ModelCatalog = {
+      provider: 'byteplus',
+      updated: '2026-11-14',
+      sourceDocs: [],
+      models: [{
+        id: 'dola-seedream-5-5-261028',
+        displayName: 'Seedream 5.5',
+        provider: 'byteplus',
+        family: 'seedream',
+        modality: 'image',
+        endpoint: '/api/v3/images/generations',
+        description: 'Seedream 5.5',
+        capabilities: {
+          tasks: ['text-to-image'],
+          resolutions: ['1K', '1.5K', '2K'],
+          aspectRatios: ['1:1', '16:9'],
+          outputFormats: ['jpeg', 'png'],
+          maxReferenceImages: 10,
+          maxOutputImages: 1
+        },
+        parameters: [
+          { name: 'output_format', type: 'string', enum: ['png', 'jpeg'], default: 'jpeg' },
+          { name: 'background', type: 'string', enum: ['auto', 'transparent', 'opaque'], default: 'auto' }
+        ]
+      }]
+    };
+    const state = buildDefaultState();
+    assert.equal(supportsLocalReferenceUpload(catalog.models[0]), true);
+    const initial = normalizeControls(catalog, state.ctl, { modelId: 'dola-seedream-5-5-261028' });
+    assert.equal(initial.params.background, 'auto');
+    assert.equal(initial.params.output_format, 'jpeg');
+
+    const transparent = normalizeControls(catalog, initial, { params: { background: 'transparent' } });
+    assert.equal(transparent.params.background, 'transparent');
+    assert.equal(transparent.params.output_format, 'png');
   });
 });

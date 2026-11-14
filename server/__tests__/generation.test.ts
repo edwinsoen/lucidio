@@ -111,8 +111,9 @@ describe('request validation', () => {
     assert.equal('sequential_image_generation' in result.providerParams, false);
   });
 
-  it('uses BytePlus Pro/Flash sizes and limits Flash to standard prompt optimization', () => {
-    for (const id of ['dola-seedream-5-0-pro-260628', 'dola-seedream-5-0-flash-260915']) {
+  it('uses BytePlus Dola Seedream 5.5/Pro/Flash sizes, enforces PNG for transparent background, and limits Flash to standard prompt optimization', () => {
+    assert.equal(catalog.models[0]?.id, 'dola-seedream-5-5-261028');
+    for (const id of ['dola-seedream-5-5-261028', 'dola-seedream-5-0-pro-260628', 'dola-seedream-5-0-flash-260915']) {
       const model = catalog.models.find((entry) => entry.id === id);
       assert(model, `expected ${id} to be present in the catalog`);
       assert.deepEqual(model.capabilities.resolutions, ['1K', '1.5K', '2K']);
@@ -121,6 +122,12 @@ describe('request validation', () => {
       assert.equal(result.providerParams.size, '2048x1152');
       assert.equal('sequential_image_generation' in result.providerParams, false);
     }
+    const seedream55 = catalog.models.find((entry) => entry.id === 'dola-seedream-5-5-261028')!;
+    const transparent = validateGenerateRequest(validPayload({ modelId: seedream55.id, ratio: '1:1', res: '2K', params: { background: 'transparent' } }), catalog);
+    assert.equal(transparent.providerParams.background, 'transparent');
+    assert.equal(transparent.providerParams.output_format, 'png');
+    assert.throws(() => validateGenerateRequest(validPayload({ modelId: seedream55.id, ratio: '1:1', res: '2K', params: { background: 'transparent', output_format: 'jpeg' } }), catalog), /Transparent background requires PNG output/);
+
     const flash = catalog.models.find((entry) => entry.id === 'dola-seedream-5-0-flash-260915');
     assert.equal(flash?.parameters.some((param) => param.name === 'optimize_prompt_options.mode'), false);
     assert.throws(() => validateGenerateRequest(validPayload({ modelId: flash!.id, ratio: '1:1', res: '1K', params: { 'optimize_prompt_options.mode': 'fast' } }), catalog), /Unsupported parameter/);
@@ -151,7 +158,8 @@ describe('request validation', () => {
     const reference = { id: 'upload-1', intent: 'image_reference', media: { provider: 'byteplus-tos', key, contentType: 'image/png', size: 100, createdAt: new Date().toISOString(), kind: 'image', role: 'primary' } };
     assert.equal(isUploadedReferenceKey(key, 'generations'), true);
     assert.equal(validateGenerateRequest(validPayload({ references: [reference] }), catalog).references[0]?.media.key, key);
-    const olderModel = catalog.models.find((model) => model.family === 'seedream' && !model.id.includes('seedream-5-0-'));
+    assert.equal(validateGenerateRequest(validPayload({ modelId: 'dola-seedream-5-5-261028', ratio: '1:1', res: '2K', references: [reference] }), catalog).references[0]?.media.key, key);
+    const olderModel = catalog.models.find((model) => model.family === 'seedream' && !model.id.includes('seedream-5-'));
     assert(olderModel);
     assert.throws(() => validateGenerateRequest(validPayload({ modelId: olderModel.id, ratio: olderModel.capabilities.aspectRatios?.[0], res: olderModel.capabilities.resolutions?.[0], references: [reference] }), catalog), /Unsupported uploaded reference/);
     assert.throws(() => validateGenerateRequest(videoPayload({ references: [reference] }), catalog), /Unsupported uploaded reference/);
@@ -632,7 +640,9 @@ describe('generation routes', () => {
 
     const wrongType = await fetch(uploadUrl, { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: image });
     assert.equal(wrongType.status, 400);
-    const olderModel = catalog.models.find((model) => model.family === 'seedream' && !model.id.includes('seedream-5-0-'))!;
+    const seedream55Upload = await fetch(`${baseUrl}/api/references/upload?modelId=dola-seedream-5-5-261028`, { method: 'POST', headers: { 'Content-Type': 'image/png' }, body: image });
+    assert.equal(seedream55Upload.status, 201);
+    const olderModel = catalog.models.find((model) => model.family === 'seedream' && !model.id.includes('seedream-5-'))!;
     const unsupported = await fetch(`${baseUrl}/api/references/upload?modelId=${olderModel.id}`, { method: 'POST', headers: { 'Content-Type': 'image/png' }, body: image });
     assert.equal(unsupported.status, 400);
   });

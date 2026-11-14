@@ -183,6 +183,12 @@ function applyImageCanonicalParams(model: ModelCatalogEntry, providerParams: Rec
     providerParams.mime_type = model.capabilities.outputFormats?.[0] === 'png' ? 'image/png' : 'image/jpeg';
     return;
   }
+  if (providerParams.background === 'transparent') {
+    if (providerParams.output_format !== undefined && providerParams.output_format !== 'png') {
+      throw new RequestValidationError('Transparent background requires PNG output', 'Set output_format to png when background is transparent.');
+    }
+    providerParams.output_format = 'png';
+  }
   providerParams.response_format = 'b64_json';
   providerParams.stream = false;
   if (model.parameters.some((param) => param.name === 'sequential_image_generation')) providerParams.sequential_image_generation = 'disabled';
@@ -190,7 +196,7 @@ function applyImageCanonicalParams(model: ModelCatalogEntry, providerParams: Rec
 }
 
 function providerSizeFor(model: ModelCatalogEntry, resolution: string, ratio: string): string {
-  if (model.id.startsWith('dola-seedream-5-0-')) {
+  if (model.id.startsWith('dola-seedream-5-')) {
     const recommended = BYTEPLUS_DOLA_RECOMMENDED_SIZES[resolution]?.[ratio];
     if (recommended) return recommended;
   }
@@ -241,7 +247,7 @@ function validateImageReferences(value: unknown[], model: ModelCatalogEntry, med
     const id = stringValue(ref.id, `references[${index}].id`);
     const media = validateMediaAsset(ref.media, `references[${index}].media`, mediaKeyPrefix);
     if (!isImageContentType(media.contentType)) throw new RequestValidationError('Invalid reference media', `references[${index}].media.contentType must be an image content type.`);
-    if (isUploadedReferenceKey(media.key, mediaKeyPrefix) && !(model.provider === 'byteplus' && model.family === 'seedream' && model.id.includes('seedream-5-0-'))) {
+    if (isUploadedReferenceKey(media.key, mediaKeyPrefix) && !(model.provider === 'byteplus' && model.family === 'seedream' && model.id.includes('seedream-5-'))) {
       throw new RequestValidationError('Unsupported uploaded reference', 'Local image references are supported only by BytePlus Seedream 5 models.');
     }
     const intent = ref.intent === undefined ? undefined : videoReferenceIntent(ref.intent, `references[${index}].intent`);

@@ -55,7 +55,7 @@ export BYTEPLUS_TOS_SECRET_ACCESS_KEY=...
 
 Endpoint IDs are values in `server/provider-config.local.yaml`, not secrets. Replace the placeholder values such as `BYTEPLUS_ACCOUNT_ENDPOINT_ID_FOR_SEEDREAM_5_PRO` with real BytePlus endpoint IDs. Models with placeholder endpoint IDs are hidden from `GET /api/models`.
 
-Seedream 5.0 Pro now uses catalog key `dola-seedream-5-0-pro-260628`; Seedream 5.0 Flash uses `dola-seedream-5-0-flash-260915`. If an existing local config maps the older `seedream-5-0-pro-260708` key, replace that key and point it to an endpoint for the current Pro model. Add a separate Flash endpoint mapping to enable Flash.
+Seedream 5.5 uses catalog key `dola-seedream-5-5-261028`; Seedream 5.0 Pro uses `dola-seedream-5-0-pro-260628`; Seedream 5.0 Flash uses `dola-seedream-5-0-flash-260915`. If an existing local config maps the older `seedream-5-0-pro-260708` key, replace that key and point it to an endpoint for the current Pro model. Add separate endpoint mappings to enable Seedream 5.5 or Flash.
 
 ## Runtime Flow
 
