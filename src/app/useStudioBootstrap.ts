@@ -64,10 +64,13 @@ export function useStudioBootstrap({
       void refreshCatalog(false);
     });
 
-    const refreshInterval = window.setInterval(() => { void refreshCatalog(hasUsableCatalog); }, MODEL_CATALOG_TTL_MS);
+    const refreshOnFocus = () => { void refreshCatalog(hasUsableCatalog); };
+    window.addEventListener('focus', refreshOnFocus);
+    const refreshInterval = window.setInterval(refreshOnFocus, MODEL_CATALOG_TTL_MS);
 
     return () => {
       cancelled = true;
+      window.removeEventListener('focus', refreshOnFocus);
       window.clearInterval(refreshInterval);
     };
   }, [dispatchStudio, dispatchUi]);
