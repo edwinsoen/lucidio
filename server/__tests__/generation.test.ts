@@ -15,7 +15,7 @@ import { BytePlusTosStorageAdapter } from '../storage/byteplusTosStorage.js';
 import type { GetObjectInput, ObjectStorageAdapter, PresignGetInput, PutObjectInput } from '../storage/storageAdapter.js';
 
 const catalog = loadModelCatalog();
-const imageModel = catalog.models.find((model) => model.modality === 'image')!;
+const imageModel = catalog.models.find((model) => model.id === 'seedream-5-0-lite-260128')!;
 const videoModel = catalog.models.find((model) => model.modality === 'video')!;
 const testLogger = { info() {}, warn() {}, error() {} };
 
@@ -80,10 +80,11 @@ describe('provider config', () => {
   it('detects configured endpoint mappings without requiring every catalog model to be configured', () => {
     const cfg = testConfig();
     const imageModels = catalog.models.filter((model) => model.modality === 'image');
-    for (const model of imageModels.slice(1)) cfg.providers.byteplus!.modelArk.modelEndpointIds[model.id] = 'BYTEPLUS_ACCOUNT_ENDPOINT_ID_PLACEHOLDER';
+    const otherImageModels = imageModels.filter((model) => model.id !== imageModel.id);
+    for (const model of otherImageModels) cfg.providers.byteplus!.modelArk.modelEndpointIds[model.id] = 'BYTEPLUS_ACCOUNT_ENDPOINT_ID_PLACEHOLDER';
     assert.equal(hasConfiguredEndpointMapping(cfg, imageModel.id), true);
     assert.equal(endpointIdForModel(cfg, imageModel.id), `endpoint-${imageModel.id}`);
-    assert.equal(hasConfiguredEndpointMapping(cfg, imageModels[1]?.id ?? imageModel.id), imageModels.length <= 1);
+    assert.equal(hasConfiguredEndpointMapping(cfg, otherImageModels[0]?.id ?? imageModel.id), otherImageModels.length === 0);
   });
 
   it('fails safely for missing endpoint mapping', () => {
@@ -599,7 +600,7 @@ describe('generation routes', () => {
   it('returns only configured image models when no video endpoint IDs are configured from /api/models', async () => {
     const cfg = testConfig();
     const imageModels = catalog.models.filter((model) => model.modality === 'image');
-    for (const model of imageModels.slice(1)) cfg.providers.byteplus!.modelArk.modelEndpointIds[model.id] = 'BYTEPLUS_ACCOUNT_ENDPOINT_ID_PLACEHOLDER';
+    for (const model of imageModels.filter((model) => model.id !== imageModel.id)) cfg.providers.byteplus!.modelArk.modelEndpointIds[model.id] = 'BYTEPLUS_ACCOUNT_ENDPOINT_ID_PLACEHOLDER';
     const app = createApp({ catalog, config: cfg, imageAdapter, storageAdapter, logger: testLogger, production: false });
     const tempServer = await new Promise<Server>((resolve) => { const s = app.listen(0, () => resolve(s)); });
     const address = tempServer.address();

@@ -15,7 +15,6 @@ providers:
       baseUrl: https://ark.ap-southeast.bytepluses.com
       apiKeyEnv: BYTEPLUS_MODELARK_API_KEY
       modelEndpointIds:
-        seedream-5-0-260128: BYTEPLUS_ACCOUNT_ENDPOINT_ID_FOR_SEEDREAM_5
         dola-seedream-5-0-pro-260628: BYTEPLUS_ACCOUNT_ENDPOINT_ID_FOR_SEEDREAM_5_PRO
         dola-seedream-5-0-flash-260915: BYTEPLUS_ACCOUNT_ENDPOINT_ID_FOR_SEEDREAM_5_FLASH
         seedream-5-0-lite-260128: BYTEPLUS_ACCOUNT_ENDPOINT_ID_FOR_SEEDREAM_5_LITE

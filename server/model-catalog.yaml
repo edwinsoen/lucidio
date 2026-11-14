@@ -1,5 +1,5 @@
 provider: byteplus
-updated: '2026-10-03'
+updated: '2026-10-04'
 sourceDocs:
   - title: BytePlus ModelArk model list
     url: https://docs.byteplus.com/en/docs/ModelArk/1330310
@@ -29,43 +29,13 @@ sourceDocs:
     url: https://ai.google.dev/gemini-api/docs/veo
     lastReviewed: '2026-07-24'
 notes:
-  - Includes Seedream and Seedance IDs present in the BytePlus ModelArk model list reviewed on 2026-10-03.
+  - The base Seedream 5.0 ID seedream-5-0-260128 is excluded because it is no longer available in the target ModelArk model list as of 2026-10-04.
   - Older API-reference-only Seedream 3.0 and Seededit variants are intentionally excluded from this first catalog.
   - Gemini models carry provider gemini and use the catalog id directly as the API model name (no endpoint mapping). Nano Banana image and Omni Flash video use the Interactions API; Veo uses predictLongRunning + operation polling. Imagen (deprecated) and legacy gemini-2.5-flash-image are intentionally excluded.
   - Gemini video (Veo, Omni Flash) returns only an MP4; Lucidio extracts the first frame as the thumbnail server-side. Omni Flash is a public-preview model and its retrieval mechanics may change.
   - Dreamina Seedance 2.5 request parameter names/enums are carried over from the Seedance 2.0 schema (same task-based /api/v3/contents/generations/tasks endpoint) pending confirmation against BytePlus's API reference; capabilities (resolution, duration, aspect ratios, audio) are sourced from BytePlus's public console/marketing pages as of 2026-08-12.
   - Seedream 5.0 Pro and Flash image-generation capabilities and sizes follow BytePlus's Pro/Flash tutorial reviewed on 2026-10-03. Layer decomposition is a separate API flow and is excluded from these single-output catalog entries. Seedream 5.0 Pro does not support sequential_image_generation; the same single-output behavior is used for Flash.
 models:
-  - id: seedream-5-0-260128
-    displayName: Seedream 5.0
-    family: seedream
-    modality: image
-    endpoint: /api/v3/images/generations
-    description: Leading BytePlus image generation model with reference consistency and professional image quality.
-    capabilities:
-      tasks:
-        - text-to-image
-        - image-to-image
-        - multi-reference-image-to-image
-        - sequential-image-generation
-      resolutions: [2K, 4K]
-      aspectRatios: [1:1, 16:9, 9:16, 4:3, 3:4, 3:2, 2:3, 21:9]
-      outputFormats: [jpeg]
-      responseFormats: [url, b64_json]
-      maxReferenceImages: 14
-      maxOutputImages: 15
-    parameters:
-      - { name: model, type: string, required: true, notes: BytePlus model ID or endpoint ID. }
-      - { name: prompt, type: string, required: true, maxRecommendedWords: 600 }
-      - { name: image, type: string_or_array, required: false, maxItems: 14, notes: URL or data URL reference images; supports single or multiple images. }
-      - { name: size, type: string, required: false, enum: [2K, 4K], default: 2048x2048, notes: May also be explicit WIDTHxHEIGHT within documented pixel/aspect constraints. }
-      - { name: sequential_image_generation, type: string, required: false, enum: [auto, disabled], default: disabled }
-      - { name: sequential_image_generation_options.max_images, type: integer, required: false, minimum: 1, maximum: 15, default: 15 }
-      - { name: stream, type: boolean, required: false, default: false }
-      - { name: response_format, type: string, required: false, enum: [url, b64_json], default: url }
-      - { name: watermark, type: boolean, required: false, default: true }
-      - { name: optimize_prompt_options.mode, type: string, required: false, enum: [standard, fast], default: standard }
-
   - id: dola-seedream-5-0-pro-260628
     displayName: Seedream 5.0 Pro
     family: seedream
