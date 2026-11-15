@@ -64,7 +64,6 @@ export interface ModelCatalogEntry {
   family: ModelFamily;
   modality: 'image' | 'video';
   endpoint: string;
-  description: string;
   capabilities: ModelCapabilities;
   parameters: ParameterDescriptor[];
 }
@@ -156,7 +155,6 @@ function validateModel(value: unknown, label: string): ModelCatalogEntry {
     family: family as ModelFamily,
     modality,
     endpoint: requiredString(model, `${label}.endpoint`),
-    description: requiredString(model, `${label}.description`),
     capabilities,
     parameters
   };

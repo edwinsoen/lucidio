@@ -3,7 +3,6 @@ import type { AppState, ModelCatalog } from '../types';
 import { api } from '../lib/api';
 import { buildDefaultState, MODEL_CATALOG_TTL_MS, normalizeStoredState } from '../lib/data';
 import { loadModelCatalogCache, loadState, saveModelCatalogCache, saveState } from '../lib/idb';
-import { isCacheFresh } from '../lib/modelCatalog';
 import type { StudioAction } from '../state/studioReducer';
 import type { UiAction } from '../state/uiReducer';
 
@@ -23,6 +22,7 @@ export function useStudioBootstrap({
   useEffect(() => {
     let cancelled = false;
     let hasUsableCatalog = false;
+    let catalogFailed = false;
 
     async function refreshCatalog(hasCache: boolean) {
       try {
@@ -33,10 +33,14 @@ export function useStudioBootstrap({
         hasUsableCatalog = catalog.models.length > 0;
         setModelCatalog(catalog);
         dispatchStudio({ type: 'normalize-for-catalog', catalog });
-        dispatchUi({ type: 'api-status', apiStatus: `Model catalog updated · ${response.count} models` });
-        void saveModelCatalogCache(cache).catch(() => dispatchUi({ type: 'api-status', apiStatus: 'Model catalog loaded; cache write failed' }));
+        if (catalogFailed) {
+          catalogFailed = false;
+          dispatchUi({ type: 'api-status', apiStatus: '' });
+        }
+        void saveModelCatalogCache(cache).catch(() => undefined);
       } catch (error) {
         if (cancelled) return;
+        catalogFailed = true;
         const message = error instanceof Error ? error.message : 'unknown error';
         dispatchUi({ type: 'api-status', apiStatus: hasCache ? `Using cached model catalog; refresh failed (${message})` : `Model catalog unavailable; generation disabled (${message})` });
       }
@@ -51,16 +55,16 @@ export function useStudioBootstrap({
         setModelCatalog(cached.catalog);
         dispatchStudio({ type: 'hydrate', state: restored });
         dispatchStudio({ type: 'normalize-for-catalog', catalog: cached.catalog });
-        dispatchUi({ type: 'hydrate', apiStatus: isCacheFresh(cached) ? `Model catalog loaded from cache · ${cached.catalog.models.length}; refreshing…` : 'Using cached model catalog; refreshing…' });
+        dispatchUi({ type: 'hydrate' });
         void refreshCatalog(true);
       } else {
         dispatchStudio({ type: 'hydrate', state: restored });
-        dispatchUi({ type: 'hydrate', apiStatus: 'Loading model catalog…' });
+        dispatchUi({ type: 'hydrate' });
         void refreshCatalog(false);
       }
     }).catch(() => {
       if (cancelled) return;
-      dispatchUi({ type: 'hydrate', apiStatus: 'IndexedDB unavailable; loading model catalog…' });
+      dispatchUi({ type: 'hydrate' });
       void refreshCatalog(false);
     });
 

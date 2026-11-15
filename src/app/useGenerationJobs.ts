@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import type { AppState, Generation, GenerationReferenceSelection, ModelCatalog, ReferenceMedia } from '../types';
 import { api, type GenerateStatusResponse } from '../lib/api';
 import { PALS } from '../lib/data';
-import { generationStatusLabel, isImageAsset, isVideoAsset, storedMediaAssetPayload } from '../lib/generationMedia';
+import { isImageAsset, isVideoAsset, storedMediaAssetPayload } from '../lib/generationMedia';
 import { modeLabel, modelById, supportsLocalReferenceUpload } from '../lib/modelCatalog';
 import { notifyGenerationComplete, requestGenerationNotificationPermission } from '../lib/notifications';
 import { recordUsage } from '../lib/usageMeter';
@@ -42,7 +42,9 @@ export function useGenerationJobs({
     const patch: Partial<Generation> = { status: status.status, progress: status.progress, error: status.error };
     if (status.result?.media) patch.media = status.result.media;
     dispatchStudio({ type: 'patch-generation', generationId, patch });
-    dispatchUi({ type: 'api-status', apiStatus: `${generationStatusLabel(status.status)} · ${status.progress?.label ?? jobId}` });
+    if (status.status === 'failed') {
+      dispatchUi({ type: 'api-status', apiStatus: status.error || status.progress?.label || failureLabel(jobNotificationMeta.current.get(jobId)?.mode) });
+    }
     if (status.status === 'complete' && !notifiedJobs.current.has(jobId)) {
       notifiedJobs.current.add(jobId);
       const meta = jobNotificationMeta.current.get(jobId);
@@ -116,7 +118,6 @@ export function useGenerationJobs({
     source.onerror = () => {
       if (streamErrorNotified.current.has(jobId)) return;
       streamErrorNotified.current.add(jobId);
-      dispatchUi({ type: 'api-status', apiStatus: `Waiting for status stream · ${jobId}` });
     };
   }, [applyStatus, dispatchStudio, dispatchUi]);
 
@@ -140,7 +141,7 @@ export function useGenerationJobs({
 
   const generate = useCallback(async (): Promise<boolean> => {
     const snapshot = state;
-    dispatchUi({ type: 'api-status', apiStatus: 'Validating generation request…' });
+    dispatchUi({ type: 'api-status', apiStatus: '' });
     try {
       const model = modelById(modelCatalog, snapshot.ctl.modelId);
       if (!snapshot.activeProjectId || !snapshot.activeSceneId || !model) return false;
@@ -185,18 +186,17 @@ export function useGenerationJobs({
       if (supportsLocalReferenceUpload(model) && snapshot.ctl.mode === 'image') {
         for (const reference of snapshot.uploadedReferences ?? []) {
           if (reference.projectId !== snapshot.activeProjectId) continue;
+          if (reference.sceneId && reference.sceneId !== snapshot.activeSceneId) continue;
           references.push({ id: reference.id, intent: 'image_reference', media: storedMediaAssetPayload(reference.media) });
         }
       }
       if (staleReferenceIds.length) dispatchStudio({ type: 'prune-references' });
-      dispatchUi({ type: 'api-status', apiStatus: 'Posting generation request…' });
       const response = await api.generate({ ...snapshot.ctl, references, referenceSelections, projectId: snapshot.activeProjectId, sceneId: snapshot.activeSceneId });
       const seq = Math.max(nextSequence(snapshot), lastSequence.current + 1);
       lastSequence.current = seq;
       const generation = queuedGenerationFromControls(snapshot, response.jobId, seq, Math.floor(Math.random() * PALS.length), new Date().toISOString());
       if (!generation) return false;
-      dispatchStudio({ type: 'insert-generation', generation, seq });
-      dispatchUi({ type: 'api-status', apiStatus: `Generation queued · ${response.jobId}` });
+      dispatchStudio({ type: 'insert-generation', generation, seq, projectId: snapshot.activeProjectId, sceneId: snapshot.activeSceneId });
       resumedJobs.current.add(response.jobId);
       jobNotificationMeta.current.set(response.jobId, { generationId: generation.id, mode: generation.type, modelId: generation.modelId, prompt: generation.prompt });
       subscribeJob(response.jobId, generation.id);
@@ -222,6 +222,7 @@ export function useGenerationJobs({
       dispatchUi({ type: 'api-status', apiStatus: `This generation is not compatible as a ${modeLabel(state.ctl.mode).toLowerCase()} reference.` });
       return;
     }
+    dispatchUi({ type: 'api-status', apiStatus: '' });
     dispatchStudio({ type: 'toggle-reference', generationId, intent: intent! });
   }, [dispatchStudio, dispatchUi, genIndex, modelCatalog, state.ctl.mode, state.ctl.modelId, state.refIds]);
 

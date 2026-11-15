@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import type { AppState, CatalogValue, Generation, GenerationControls, GenerationMedia, Project } from '../types';
+import type { AppState, CatalogValue, Generation, GenerationControls, GenerationMedia, Project, Scene } from '../types';
 
 export const MODEL_CATALOG_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -60,9 +60,18 @@ function gen(seq: { current: number }, data: Partial<Generation>): Generation {
   };
 }
 
+export function cloneControls(ctl: Partial<GenerationControls> = defaultControls): GenerationControls {
+  return {
+    ...defaultControls,
+    ...ctl,
+    params: isRecord(ctl?.params) ? { ...(ctl.params as Record<string, CatalogValue>) } : {}
+  };
+}
+
 export function buildDefaultState(): AppState {
   const projectId = 'p1';
   const sceneId = 'sc1';
+  const initialCtl = cloneControls(defaultControls);
   return {
     version: 1,
     seq: 1,
@@ -70,38 +79,76 @@ export function buildDefaultState(): AppState {
       id: projectId,
       name: 'Untitled project',
       accent: '#6366f1',
-      scenes: [{ id: sceneId, name: 'Scene 1', gens: [] }]
+      activeSceneId: sceneId,
+      scenes: [{
+        id: sceneId,
+        name: 'Scene 1',
+        gens: [],
+        ctl: initialCtl,
+        refIds: [],
+        referenceSelections: []
+      }]
     }],
     activeProjectId: projectId,
     activeSceneId: sceneId,
     refIds: [],
     uploadedReferences: [],
     referenceSelections: [],
-    ctl: { ...defaultControls }
+    ctl: cloneControls(defaultControls)
   };
 }
 
 export function normalizeStoredState(stored: AppState): AppState {
+  const fallbackCtl = cloneControls(stored.ctl);
+  const fallbackRefIds = Array.isArray(stored.refIds) ? stored.refIds : [];
+  const fallbackSelections = Array.isArray(stored.referenceSelections) ? stored.referenceSelections : [];
+  const activeProjectId = stored.activeProjectId ?? stored.projects?.[0]?.id ?? null;
+  const activeSceneId = stored.activeSceneId ?? stored.projects?.find((project) => project.id === activeProjectId)?.scenes?.[0]?.id ?? null;
+
+  const projects = Array.isArray(stored.projects)
+    ? stored.projects.map((project) => normalizeProject(project, project.id === activeProjectId ? activeSceneId : null, fallbackCtl, fallbackRefIds, fallbackSelections))
+    : [];
+
+  const activeProject = projects.find((project) => project.id === activeProjectId) ?? projects[0] ?? null;
+  const activeScene = activeProject?.scenes.find((scene) => scene.id === (activeProject.activeSceneId ?? activeSceneId)) ?? activeProject?.scenes[0] ?? null;
+
   return {
     ...stored,
-    projects: Array.isArray(stored.projects) ? stored.projects.map(normalizeProject) : [],
-    refIds: Array.isArray(stored.refIds) ? stored.refIds : [],
+    projects,
+    activeProjectId: activeProject?.id ?? null,
+    activeSceneId: activeScene?.id ?? null,
+    refIds: activeScene?.refIds ? [...activeScene.refIds] : fallbackRefIds,
     uploadedReferences: Array.isArray(stored.uploadedReferences) ? stored.uploadedReferences : [],
-    referenceSelections: Array.isArray(stored.referenceSelections) ? stored.referenceSelections : [],
-    ctl: {
-      ...defaultControls,
-      ...stored.ctl,
-      params: isRecord(stored.ctl?.params) ? stored.ctl.params as Record<string, CatalogValue> : {}
-    }
+    referenceSelections: activeScene?.referenceSelections ? [...activeScene.referenceSelections] : fallbackSelections,
+    ctl: activeScene?.ctl ? cloneControls(activeScene.ctl) : fallbackCtl
   };
 }
 
-function normalizeProject(project: Project): Project {
+function normalizeProject(
+  project: Project,
+  fallbackActiveSceneId: string | null,
+  fallbackCtl: GenerationControls,
+  fallbackRefIds: string[],
+  fallbackSelections: AppState['referenceSelections']
+): Project {
+  const scenes = Array.isArray(project.scenes)
+    ? project.scenes.map((scene): Scene => {
+        const isFallbackActive = fallbackActiveSceneId !== null && scene.id === fallbackActiveSceneId;
+        return {
+          ...scene,
+          gens: Array.isArray(scene.gens) ? scene.gens.map(normalizeGeneration) : [],
+          ctl: scene.ctl ? cloneControls(scene.ctl) : isFallbackActive ? cloneControls(fallbackCtl) : cloneControls(defaultControls),
+          refIds: Array.isArray(scene.refIds) ? scene.refIds : isFallbackActive ? [...fallbackRefIds] : [],
+          referenceSelections: Array.isArray(scene.referenceSelections) ? scene.referenceSelections : isFallbackActive ? [...(fallbackSelections ?? [])] : []
+        };
+      })
+    : [];
+  const preferredSceneId = project.activeSceneId ?? fallbackActiveSceneId;
+  const activeSceneId = scenes.some((scene) => scene.id === preferredSceneId) ? preferredSceneId : scenes[0]?.id ?? null;
   return {
     ...project,
-    scenes: Array.isArray(project.scenes)
-      ? project.scenes.map((scene) => ({ ...scene, gens: Array.isArray(scene.gens) ? scene.gens.map(normalizeGeneration) : [] }))
-      : []
+    activeSceneId,
+    scenes
   };
 }
 

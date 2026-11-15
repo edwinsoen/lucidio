@@ -41,7 +41,6 @@ models:
     family: seedream
     modality: image
     endpoint: /api/v3/images/generations
-    description: Next-generation BytePlus Dola Seedream 5.5 image creation and editing model with high multi-turn consistency, native RGBA transparent background generation, and rich multilingual text rendering.
     capabilities:
       tasks:
         - text-to-image
@@ -70,7 +69,6 @@ models:
     family: seedream
     modality: image
     endpoint: /api/v3/images/generations
-    description: Pro-tier BytePlus image generation model with photorealistic rendering, complex infographic generation, and native multilingual text rendering.
     capabilities:
       tasks:
         - text-to-image
@@ -98,7 +96,6 @@ models:
     family: seedream
     modality: image
     endpoint: /api/v3/images/generations
-    description: Faster, lower-cost Seedream 5.0 image generation with single and multi-reference editing.
     capabilities:
       tasks:
         - text-to-image
@@ -125,7 +122,6 @@ models:
     family: seedream
     modality: image
     endpoint: /api/v3/images/generations
-    description: Seedream 5.0 Lite image generation model with multi-reference and batch-generation support.
     capabilities:
       tasks:
         - text-to-image
@@ -156,7 +152,6 @@ models:
     family: seedream
     modality: image
     endpoint: /api/v3/images/generations
-    description: Seedream 4.5 image generation model with single and multi-reference image support.
     capabilities:
       tasks:
         - text-to-image
@@ -186,7 +181,6 @@ models:
     family: seedream
     modality: image
     endpoint: /api/v3/images/generations
-    description: Seedream 4.0 image generation model with text, single-reference, multi-reference, and batch output support.
     capabilities:
       tasks:
         - text-to-image
@@ -216,7 +210,6 @@ models:
     family: seedance
     modality: video
     endpoint: /api/v3/contents/generations/tasks
-    description: Mainline Seedance 2.0 video generation model with high-fidelity audio-visual synchronization.
     capabilities:
       tasks:
         - text-to-video
@@ -251,7 +244,6 @@ models:
     family: seedance
     modality: video
     endpoint: /api/v3/contents/generations/tasks
-    description: Fast Seedance 2.0 video generation variant with audio-visual synchronization.
     capabilities:
       tasks:
         - text-to-video
@@ -286,7 +278,6 @@ models:
     family: seedance
     modality: video
     endpoint: /api/v3/contents/generations/tasks
-    description: Mini Seedance 2.0 video generation variant with audio-visual synchronization.
     capabilities:
       tasks:
         - text-to-video
@@ -321,11 +312,6 @@ models:
     family: seedance
     modality: video
     endpoint: /api/v3/contents/generations/tasks
-    description: >-
-      Next-gen Seedance 2.5 video generation model with native 4-30s
-      cinematic narratives, precision in-video editing, and expanded
-      multimodal reference support (up to 30 images, 10 videos, 10 audio
-      clips per request).
     capabilities:
       tasks:
         - text-to-video
@@ -359,7 +345,6 @@ models:
     family: seedance
     modality: video
     endpoint: /api/v3/contents/generations/tasks
-    description: Seedance 1.5 Pro video model with audio generation and draft mode support.
     capabilities:
       tasks:
         - text-to-video
@@ -395,7 +380,6 @@ models:
     family: seedance
     modality: video
     endpoint: /api/v3/contents/generations/tasks
-    description: Seedance 1.0 Pro video generation model for text-to-video and first-frame/first-last-frame image-to-video.
     capabilities:
       tasks:
         - text-to-video
@@ -429,7 +413,6 @@ models:
     family: seedance
     modality: video
     endpoint: /api/v3/contents/generations/tasks
-    description: Fast Seedance 1.0 Pro variant for text-to-video and first-frame image-to-video.
     capabilities:
       tasks:
         - text-to-video
@@ -465,7 +448,6 @@ models:
     family: nano-banana
     modality: image
     endpoint: /v1beta/interactions
-    description: Gemini 3 Pro Image (Nano Banana Pro) — top-quality reasoning-driven image generation and editing with up to 4K output.
     capabilities:
       tasks:
         - text-to-image
@@ -485,7 +467,6 @@ models:
     family: nano-banana
     modality: image
     endpoint: /v1beta/interactions
-    description: Gemini 3.1 Flash Image (Nano Banana 2) — fast, cost-efficient image generation and editing at up to 4K.
     capabilities:
       tasks:
         - text-to-image
@@ -505,7 +486,6 @@ models:
     family: nano-banana
     modality: image
     endpoint: /v1beta/interactions
-    description: Gemini 3.1 Flash Lite Image (Nano Banana 2 Lite) — cheapest Nano Banana tier, 1K output only.
     capabilities:
       tasks:
         - text-to-image
@@ -525,7 +505,6 @@ models:
     family: veo
     modality: video
     endpoint: /v1beta/models/{id}:predictLongRunning
-    description: Veo 3.1 — high-fidelity text-to-video and image-to-video with synchronized audio.
     capabilities:
       tasks:
         - text-to-video
@@ -552,7 +531,6 @@ models:
     family: veo
     modality: video
     endpoint: /v1beta/models/{id}:predictLongRunning
-    description: Veo 3.1 Fast — lower-latency, lower-cost Veo 3.1 variant with synchronized audio.
     capabilities:
       tasks:
         - text-to-video
@@ -579,7 +557,6 @@ models:
     family: omni-flash
     modality: video
     endpoint: /v1beta/interactions
-    description: Gemini Omni Flash — cost-efficient 720p text-to-video and image-to-video via the Interactions API (public preview).
     capabilities:
       tasks:
         - text-to-video

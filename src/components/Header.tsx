@@ -69,7 +69,6 @@ export function Header({ projects, activeProjectId, openProjectMenuId, projectMe
         <button className="new-tab" onClick={onNewProject}>+</button>
       </div>
       <UsageMeter catalog={catalog} />
-      <div className="avatar">AN</div>
     </header>
   );
 }

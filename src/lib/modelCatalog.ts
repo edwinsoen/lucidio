@@ -178,5 +178,17 @@ export function normalizeControls(catalog: ModelCatalog | null, ctl: GenerationC
 }
 
 export function normalizeStateForCatalog(state: AppState, catalog: ModelCatalog | null): AppState {
-  return { ...state, ctl: normalizeControls(catalog, state.ctl) };
+  const ctl = normalizeControls(catalog, state.ctl);
+  const projects = state.projects.map((project) => ({
+    ...project,
+    scenes: project.scenes.map((scene) => ({
+      ...scene,
+      ctl: scene.id === state.activeSceneId && project.id === state.activeProjectId
+        ? ctl
+        : scene.ctl
+          ? normalizeControls(catalog, scene.ctl)
+          : undefined
+    }))
+  }));
+  return { ...state, ctl, projects };
 }

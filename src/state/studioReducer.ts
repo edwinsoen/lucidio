@@ -1,5 +1,5 @@
-import type { AppState, Generation, GenerationControls, GenerationProgress, GenerationReferenceSelection, ModelCatalog, OutputMode, Project, UploadedReference, VideoReferenceIntent } from '../types';
-import { defaultControls } from '../lib/data';
+import type { AppState, Generation, GenerationControls, GenerationProgress, GenerationReferenceSelection, ModelCatalog, OutputMode, Project, Scene, UploadedReference, VideoReferenceIntent } from '../types';
+import { cloneControls, defaultControls } from '../lib/data';
 import { normalizeControls, normalizeStateForCatalog, type ParamPatch } from '../lib/modelCatalog';
 import { activeProject } from './studioSelectors';
 
@@ -10,7 +10,7 @@ export type StudioAction =
   | { type: 'set-mode'; catalog: ModelCatalog | null; mode: OutputMode; modelId: string }
   | { type: 'set-active-project'; projectId: string }
   | { type: 'set-active-scene'; sceneId: string | null }
-  | { type: 'new-project'; projectId: string; sceneId: string; seq: number }
+  | { type: 'new-project'; projectId: string; sceneId: string; seq: number; catalog?: ModelCatalog | null }
   | { type: 'delete-project'; projectId: string }
   | { type: 'add-scene'; sceneId: string; seq: number }
   | { type: 'rename-project'; projectId: string; name: string }
@@ -23,44 +23,102 @@ export type StudioAction =
   | { type: 'remove-uploaded-reference'; referenceId: string }
   | { type: 'toggle-reference'; generationId: string; intent: VideoReferenceIntent }
   | { type: 'toggle-preferred'; sceneId: string; generationId: string }
-  | { type: 'insert-generation'; generation: Generation; seq: number }
+  | { type: 'insert-generation'; generation: Generation; seq: number; projectId?: string | null; sceneId?: string | null }
   | { type: 'patch-generation'; generationId: string; patch: Partial<Generation> }
   | { type: 'delete-generation'; sceneId: string; generationId: string };
 
 export function studioReducer(state: AppState, action: StudioAction): AppState {
   switch (action.type) {
     case 'hydrate':
-      return pruneReferences(action.state);
+      return pruneReferences(syncActiveSceneIntoProjects(action.state));
     case 'normalize-for-catalog':
-      return normalizeStateForCatalog(state, action.catalog);
+      return normalizeStateForCatalog(syncActiveSceneIntoProjects(state), action.catalog);
     case 'set-controls':
-      return { ...state, ctl: normalizeControls(action.catalog, state.ctl, action.patch) };
+      return syncActiveSceneIntoProjects({ ...state, ctl: normalizeControls(action.catalog, state.ctl, action.patch) });
     case 'set-mode':
-      return { ...state, ctl: normalizeControls(action.catalog, state.ctl, { mode: action.mode, modelId: action.modelId }) };
+      return syncActiveSceneIntoProjects({ ...state, ctl: normalizeControls(action.catalog, state.ctl, { mode: action.mode, modelId: action.modelId }) });
     case 'set-active-project': {
-      const selected = state.projects.find((project) => project.id === action.projectId);
+      const synced = syncActiveSceneIntoProjects(state);
+      const selected = synced.projects.find((project) => project.id === action.projectId);
       if (!selected) return state;
-      return { ...state, activeProjectId: action.projectId, activeSceneId: selected.scenes[0]?.id ?? null };
+      const targetScene = selected.scenes.find((scene) => scene.id === selected.activeSceneId) ?? selected.scenes[0] ?? null;
+      return loadSceneIntoTopLevel({ ...synced, activeProjectId: action.projectId, activeSceneId: targetScene?.id ?? null }, targetScene);
     }
-    case 'set-active-scene':
-      return { ...state, activeSceneId: action.sceneId };
+    case 'set-active-scene': {
+      const synced = syncActiveSceneIntoProjects(state);
+      const project = activeProject(synced);
+      const targetScene = project?.scenes.find((scene) => scene.id === action.sceneId) ?? null;
+      const withProjectScene = updateActiveProject(synced, (item) => ({ ...item, activeSceneId: action.sceneId }));
+      return loadSceneIntoTopLevel({ ...withProjectScene, activeSceneId: action.sceneId }, targetScene);
+    }
     case 'new-project': {
-      const nextProject: Project = { id: action.projectId, name: 'Untitled project', accent: '#6366f1', scenes: [{ id: action.sceneId, name: 'Scene 1', gens: [] }] };
-      return { ...state, seq: action.seq, projects: [...state.projects, nextProject], activeProjectId: action.projectId, activeSceneId: action.sceneId };
+      const synced = syncActiveSceneIntoProjects(state);
+      const freshCtl = normalizeControls(action.catalog ?? null, cloneControls(defaultControls));
+      const nextScene: Scene = {
+        id: action.sceneId,
+        name: 'Scene 1',
+        gens: [],
+        ctl: freshCtl,
+        refIds: [],
+        referenceSelections: []
+      };
+      const nextProject: Project = {
+        id: action.projectId,
+        name: 'Untitled project',
+        accent: '#6366f1',
+        activeSceneId: action.sceneId,
+        scenes: [nextScene]
+      };
+      return {
+        ...synced,
+        seq: action.seq,
+        projects: [...synced.projects, nextProject],
+        activeProjectId: action.projectId,
+        activeSceneId: action.sceneId,
+        ctl: cloneControls(freshCtl),
+        refIds: [],
+        referenceSelections: []
+      };
     }
     case 'delete-project': {
-      const projects = state.projects.filter((item) => item.id !== action.projectId);
-      const uploadedReferences = (state.uploadedReferences ?? []).filter((reference) => reference.projectId !== action.projectId);
-      if (state.activeProjectId !== action.projectId) return pruneReferences({ ...state, projects, uploadedReferences });
+      const synced = syncActiveSceneIntoProjects(state);
+      const projects = synced.projects.filter((item) => item.id !== action.projectId);
+      const uploadedReferences = (synced.uploadedReferences ?? []).filter((reference) => reference.projectId !== action.projectId);
+      if (synced.activeProjectId !== action.projectId) return pruneReferences({ ...synced, projects, uploadedReferences });
       const next = projects[0] ?? null;
-      return pruneReferences({ ...state, projects, uploadedReferences, activeProjectId: next?.id ?? null, activeSceneId: next?.scenes[0]?.id ?? null });
+      const nextScene = next?.scenes.find((scene) => scene.id === next.activeSceneId) ?? next?.scenes[0] ?? null;
+      return pruneReferences(loadSceneIntoTopLevel({
+        ...synced,
+        projects,
+        uploadedReferences,
+        activeProjectId: next?.id ?? null,
+        activeSceneId: nextScene?.id ?? null
+      }, nextScene));
     }
-    case 'add-scene':
-      return {
-        ...updateActiveProject(state, (project) => ({ ...project, scenes: [...project.scenes, { id: action.sceneId, name: 'New scene', gens: [] }] })),
-        seq: action.seq,
-        activeSceneId: action.sceneId
+    case 'add-scene': {
+      const synced = syncActiveSceneIntoProjects(state);
+      const copiedCtl: GenerationControls = { ...cloneControls(synced.ctl), prompt: '' };
+      const newScene: Scene = {
+        id: action.sceneId,
+        name: 'New scene',
+        gens: [],
+        ctl: copiedCtl,
+        refIds: [],
+        referenceSelections: []
       };
+      return {
+        ...updateActiveProject(synced, (project) => ({
+          ...project,
+          activeSceneId: action.sceneId,
+          scenes: [...project.scenes, newScene]
+        })),
+        seq: action.seq,
+        activeSceneId: action.sceneId,
+        ctl: cloneControls(copiedCtl),
+        refIds: [],
+        referenceSelections: []
+      };
+    }
     case 'rename-project': {
       const name = action.name.trim();
       return {
@@ -76,11 +134,18 @@ export function studioReducer(state: AppState, action: StudioAction): AppState {
       }));
     }
     case 'delete-scene': {
-      const project = activeProject(state);
+      const synced = syncActiveSceneIntoProjects(state);
+      const project = activeProject(synced);
       if (!project) return state;
       const scenes = project.scenes.filter((scene) => scene.id !== action.sceneId);
-      const nextActiveScene = state.activeSceneId === action.sceneId ? scenes[0]?.id ?? null : state.activeSceneId;
-      return pruneReferences({ ...updateActiveProject(state, (item) => ({ ...item, scenes })), activeSceneId: nextActiveScene });
+      const uploadedReferences = (synced.uploadedReferences ?? []).filter((reference) => reference.sceneId !== action.sceneId);
+      const nextActiveSceneId = synced.activeSceneId === action.sceneId ? scenes[0]?.id ?? null : synced.activeSceneId;
+      const nextScene = scenes.find((scene) => scene.id === nextActiveSceneId) ?? null;
+      return pruneReferences(loadSceneIntoTopLevel({
+        ...updateActiveProject(synced, (item) => ({ ...item, activeSceneId: nextActiveSceneId, scenes })),
+        uploadedReferences,
+        activeSceneId: nextActiveSceneId
+      }, nextScene));
     }
     case 'move-scene': {
       if (!action.fromId || action.fromId === action.toId) return state;
@@ -95,15 +160,15 @@ export function studioReducer(state: AppState, action: StudioAction): AppState {
       });
     }
     case 'set-reference-intent':
-      return setReferenceIntent(state, action.generationId, action.intent);
+      return syncActiveSceneIntoProjects(setReferenceIntent(state, action.generationId, action.intent));
     case 'prune-references':
-      return pruneReferences(state);
+      return pruneReferences(syncActiveSceneIntoProjects(state));
     case 'add-uploaded-reference':
       return { ...state, uploadedReferences: [...(state.uploadedReferences ?? []), action.reference] };
     case 'remove-uploaded-reference':
       return { ...state, uploadedReferences: (state.uploadedReferences ?? []).filter((reference) => reference.id !== action.referenceId) };
-    case 'toggle-reference':
-      return state.refIds.includes(action.generationId)
+    case 'toggle-reference': {
+      const nextState = state.refIds.includes(action.generationId)
         ? {
             ...state,
             refIds: state.refIds.filter((id) => id !== action.generationId),
@@ -114,6 +179,8 @@ export function studioReducer(state: AppState, action: StudioAction): AppState {
             refIds: [...state.refIds, action.generationId],
             referenceSelections: [...(state.referenceSelections ?? []).filter((selection) => selection.generationId !== action.generationId), { generationId: action.generationId, intent: action.intent }]
           };
+      return syncActiveSceneIntoProjects(nextState);
+    }
     case 'toggle-preferred':
       return updateActiveProject(state, (project) => ({
         ...project,
@@ -122,26 +189,67 @@ export function studioReducer(state: AppState, action: StudioAction): AppState {
           gens: scene.gens.map((generation) => ({ ...generation, preferred: generation.id === action.generationId ? !generation.preferred : false }))
         })
       }));
-    case 'insert-generation':
+    case 'insert-generation': {
+      const targetProjectId = action.projectId ?? state.activeProjectId;
+      const targetSceneId = action.sceneId ?? state.activeSceneId;
       return {
-        ...updateActiveProject(state, (project) => ({
+        ...state,
+        projects: state.projects.map((project) => project.id !== targetProjectId ? project : {
           ...project,
-          scenes: project.scenes.map((scene) => scene.id === state.activeSceneId ? { ...scene, gens: [action.generation, ...scene.gens] } : scene)
-        })),
+          scenes: project.scenes.map((scene) => scene.id === targetSceneId ? { ...scene, gens: [action.generation, ...scene.gens] } : scene)
+        }),
         seq: action.seq
       };
+    }
     case 'patch-generation':
       return updateGeneration(state, action.generationId, action.patch);
     case 'delete-generation':
-      return {
+      return pruneReferences(syncActiveSceneIntoProjects({
         ...updateActiveProject(state, (project) => ({
           ...project,
           scenes: project.scenes.map((scene) => scene.id === action.sceneId ? { ...scene, gens: scene.gens.filter((generation) => generation.id !== action.generationId) } : scene)
         })),
         refIds: state.refIds.filter((id) => id !== action.generationId),
         referenceSelections: (state.referenceSelections ?? []).filter((selection) => selection.generationId !== action.generationId)
-      };
+      }));
   }
+}
+
+function syncActiveSceneIntoProjects(state: AppState): AppState {
+  if (!state.activeProjectId || !state.activeSceneId) return state;
+  return {
+    ...state,
+    projects: state.projects.map((project) => project.id !== state.activeProjectId ? project : {
+      ...project,
+      activeSceneId: state.activeSceneId,
+      scenes: project.scenes.map((scene) => scene.id !== state.activeSceneId ? scene : {
+        ...scene,
+        ctl: cloneControls(state.ctl),
+        refIds: [...state.refIds],
+        referenceSelections: [...(state.referenceSelections ?? [])]
+      })
+    })
+  };
+}
+
+function loadSceneIntoTopLevel(state: AppState, scene: Scene | null): AppState {
+  if (!scene) {
+    return {
+      ...state,
+      ctl: cloneControls(defaultControls),
+      refIds: [],
+      referenceSelections: []
+    };
+  }
+  const ctl = scene.ctl ? cloneControls(scene.ctl) : cloneControls(defaultControls);
+  const refIds = Array.isArray(scene.refIds) ? [...scene.refIds] : [];
+  const referenceSelections = Array.isArray(scene.referenceSelections) ? [...scene.referenceSelections] : [];
+  return syncActiveSceneIntoProjects({
+    ...state,
+    ctl,
+    refIds,
+    referenceSelections
+  });
 }
 
 export function pruneReferences(state: AppState): AppState {
@@ -149,8 +257,15 @@ export function pruneReferences(state: AppState): AppState {
   state.projects.forEach((project) => project.scenes.forEach((scene) => scene.gens.forEach((generation) => ids.add(generation.id))));
   const refIds = (state.refIds ?? []).filter((id) => ids.has(id));
   const referenceSelections = (state.referenceSelections ?? []).filter((selection) => ids.has(selection.generationId));
-  if (refIds.length === (state.refIds ?? []).length && referenceSelections.length === (state.referenceSelections ?? []).length) return state;
-  return { ...state, refIds, referenceSelections };
+  const projects = state.projects.map((project) => ({
+    ...project,
+    scenes: project.scenes.map((scene) => ({
+      ...scene,
+      refIds: scene.refIds ? scene.refIds.filter((id) => ids.has(id)) : scene.refIds,
+      referenceSelections: scene.referenceSelections ? scene.referenceSelections.filter((selection) => ids.has(selection.generationId)) : scene.referenceSelections
+    }))
+  }));
+  return { ...state, projects, refIds, referenceSelections };
 }
 
 export function nextSequence(state: AppState): number {

@@ -5,7 +5,7 @@ import { buildDefaultState, makeId } from '../lib/data';
 import { firstModel, modelById, supportsLocalReferenceUpload, type ParamPatch } from '../lib/modelCatalog';
 import { deleteGenerationThumbnails } from '../lib/thumbnailCache';
 import { activeProject, activeScene, generationIndex, previewNavigation, selectedReferenceGenerations } from '../state/studioSelectors';
-import { nextSequence, studioReducer } from '../state/studioReducer';
+import { nextSequence, studioReducer, type StudioAction } from '../state/studioReducer';
 import { initialUiState, uiReducer } from '../state/uiReducer';
 import { useGenerationJobs } from './useGenerationJobs';
 import { useMediaUrls } from './useMediaUrls';
@@ -25,29 +25,34 @@ export function useStudio() {
   const { mediaUrls, ensureMediaUrl, download } = useMediaUrls(dispatchUi);
   const { generate, toggleReference } = useGenerationJobs({ state, modelCatalog, genIndex, hydrated: ui.hydrated, dispatchStudio, dispatchUi });
 
-  const setReferenceIntent = useCallback((generationId: string, intent: VideoReferenceIntent) => {
-    dispatchStudio({ type: 'set-reference-intent', generationId, intent });
+  const dispatchUserStudio = useCallback((action: StudioAction) => {
+    dispatchUi({ type: 'api-status', apiStatus: '' });
+    dispatchStudio(action);
   }, []);
 
+  const setReferenceIntent = useCallback((generationId: string, intent: VideoReferenceIntent) => {
+    dispatchUserStudio({ type: 'set-reference-intent', generationId, intent });
+  }, [dispatchUserStudio]);
+
   const setControls = useCallback((patch: Partial<GenerationControls> & { params?: ParamPatch }) => {
-    dispatchStudio({ type: 'set-controls', catalog: modelCatalog, patch });
-  }, [modelCatalog]);
+    dispatchUserStudio({ type: 'set-controls', catalog: modelCatalog, patch });
+  }, [dispatchUserStudio, modelCatalog]);
 
   const setMode = useCallback((mode: OutputMode) => {
     const selected = firstModel(modelCatalog, mode);
-    dispatchStudio({ type: 'set-mode', catalog: modelCatalog, mode, modelId: selected?.id ?? '' });
-  }, [modelCatalog]);
+    dispatchUserStudio({ type: 'set-mode', catalog: modelCatalog, mode, modelId: selected?.id ?? '' });
+  }, [dispatchUserStudio, modelCatalog]);
 
   const [generating, setGenerating] = useState(false);
   const [uploadingReference, setUploadingReference] = useState(false);
   const uploadingReferenceRef = useRef(false);
   const uploadReference = useCallback(async (file: File) => {
-    if (uploadingReferenceRef.current || !project || !currentModel || !supportsLocalReferenceUpload(currentModel)) return;
+    if (uploadingReferenceRef.current || !project || !scene || !currentModel || !supportsLocalReferenceUpload(currentModel)) return;
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size === 0 || file.size > 30 * 1024 * 1024) {
       dispatchUi({ type: 'api-status', apiStatus: 'Choose a JPEG, PNG, or WebP image up to 30 MB.' });
       return;
     }
-    const selectedCount = refs.length + (state.uploadedReferences ?? []).filter((reference) => reference.projectId === project.id).length;
+    const selectedCount = refs.length + (state.uploadedReferences ?? []).filter((reference) => reference.projectId === project.id && (!reference.sceneId || reference.sceneId === scene.id)).length;
     const maxReferences = currentModel.capabilities.maxReferenceImages ?? 10;
     if (selectedCount >= maxReferences) {
       dispatchUi({ type: 'api-status', apiStatus: `${currentModel.displayName} supports at most ${maxReferences} reference images.` });
@@ -55,18 +60,17 @@ export function useStudio() {
     }
     uploadingReferenceRef.current = true;
     setUploadingReference(true);
-    dispatchUi({ type: 'api-status', apiStatus: `Uploading ${file.name}…` });
+    dispatchUi({ type: 'api-status', apiStatus: '' });
     try {
       const media = await api.uploadReference(currentModel.id, file);
-      dispatchStudio({ type: 'add-uploaded-reference', reference: { id: crypto.randomUUID(), projectId: project.id, name: file.name, media } });
-      dispatchUi({ type: 'api-status', apiStatus: `Reference added: ${file.name}` });
+      dispatchStudio({ type: 'add-uploaded-reference', reference: { id: crypto.randomUUID(), projectId: project.id, sceneId: scene.id, name: file.name, media } });
     } catch (error) {
       dispatchUi({ type: 'api-status', apiStatus: `Reference upload failed: ${error instanceof Error ? error.message : String(error)}` });
     } finally {
       uploadingReferenceRef.current = false;
       setUploadingReference(false);
     }
-  }, [currentModel, project, refs.length, state.uploadedReferences]);
+  }, [currentModel, project, scene, refs.length, state.uploadedReferences]);
   const generatingRef = useRef(false);
 
   const runGenerate = useCallback(async () => {
@@ -84,38 +88,38 @@ export function useStudio() {
   const newProject = useCallback(() => {
     const seqScene = nextSequence(state);
     const seqProject = seqScene + 1;
-    dispatchStudio({ type: 'new-project', sceneId: makeId('sc', seqScene), projectId: makeId('p', seqProject), seq: seqProject });
-  }, [state]);
+    dispatchUserStudio({ type: 'new-project', sceneId: makeId('sc', seqScene), projectId: makeId('p', seqProject), seq: seqProject, catalog: modelCatalog });
+  }, [dispatchUserStudio, modelCatalog, state]);
 
   const addScene = useCallback(() => {
     const seq = nextSequence(state);
-    dispatchStudio({ type: 'add-scene', sceneId: makeId('sc', seq), seq });
-  }, [state]);
+    dispatchUserStudio({ type: 'add-scene', sceneId: makeId('sc', seq), seq });
+  }, [dispatchUserStudio, state]);
 
   const commitProjectName = useCallback(() => {
     if (!ui.editingProjectId) return;
-    dispatchStudio({ type: 'rename-project', projectId: ui.editingProjectId, name: ui.projectEditValue });
+    dispatchUserStudio({ type: 'rename-project', projectId: ui.editingProjectId, name: ui.projectEditValue });
     dispatchUi({ type: 'clear-project-edit' });
-  }, [ui.editingProjectId, ui.projectEditValue]);
+  }, [dispatchUserStudio, ui.editingProjectId, ui.projectEditValue]);
 
   const commitSceneName = useCallback(() => {
     if (!ui.editingSceneId) return;
-    dispatchStudio({ type: 'rename-scene', sceneId: ui.editingSceneId, name: ui.editValue });
+    dispatchUserStudio({ type: 'rename-scene', sceneId: ui.editingSceneId, name: ui.editValue });
     dispatchUi({ type: 'clear-scene-edit' });
-  }, [ui.editValue, ui.editingSceneId]);
+  }, [dispatchUserStudio, ui.editValue, ui.editingSceneId]);
 
   const deleteScene = useCallback((sceneId: string) => {
     const sceneToDelete = project?.scenes.find((item) => item.id === sceneId);
     if (sceneToDelete) void Promise.allSettled(sceneToDelete.gens.map((generation) => deleteGenerationThumbnails(generation)));
-    dispatchStudio({ type: 'delete-scene', sceneId });
+    dispatchUserStudio({ type: 'delete-scene', sceneId });
     dispatchUi({ type: 'clear-delete-scene' });
-  }, [project]);
+  }, [dispatchUserStudio, project]);
 
   const deleteGeneration = useCallback((sceneId: string, generationId: string) => {
     void deleteGenerationThumbnails(genIndex.get(generationId)?.generation);
-    dispatchStudio({ type: 'delete-generation', sceneId, generationId });
+    dispatchUserStudio({ type: 'delete-generation', sceneId, generationId });
     dispatchUi({ type: 'generation-deleted', generationId });
-  }, [genIndex]);
+  }, [dispatchUserStudio, genIndex]);
 
   const closeProject = useCallback(() => {
     if (!ui.confirmDeleteProjectId) return;
@@ -124,9 +128,9 @@ export function useStudio() {
       const generations = projectToDelete.scenes.flatMap((sceneItem) => sceneItem.gens);
       void Promise.allSettled(generations.map((generation) => deleteGenerationThumbnails(generation)));
     }
-    dispatchStudio({ type: 'delete-project', projectId: ui.confirmDeleteProjectId });
+    dispatchUserStudio({ type: 'delete-project', projectId: ui.confirmDeleteProjectId });
     dispatchUi({ type: 'clear-delete-project' });
-  }, [state.projects, ui.confirmDeleteProjectId]);
+  }, [dispatchUserStudio, state.projects, ui.confirmDeleteProjectId]);
 
   const onDownload = useCallback((generation: Generation) => {
     void download(generation);
@@ -139,7 +143,7 @@ export function useStudio() {
       openProjectMenuId: ui.openProjectMenuId,
       projectMenuAnchor: ui.projectMenuAnchor,
       catalog: modelCatalog,
-      onSelectProject: (projectId: string) => dispatchStudio({ type: 'set-active-project', projectId }),
+      onSelectProject: (projectId: string) => dispatchUserStudio({ type: 'set-active-project', projectId }),
       onToggleProjectMenu: (projectId: string, anchor: { top: number; right: number }) => dispatchUi({ type: 'toggle-project-menu', projectId, anchor }),
       onRequestDeleteProject: (projectId: string) => dispatchUi({ type: 'request-delete-project', projectId }),
       onNewProject: newProject
@@ -150,7 +154,7 @@ export function useStudio() {
       currentModel,
       references: refs,
       uploadedReferences: supportsLocalReferenceUpload(currentModel)
-        ? (state.uploadedReferences ?? []).filter((reference) => reference.projectId === project?.id)
+        ? (state.uploadedReferences ?? []).filter((reference) => reference.projectId === project?.id && (!reference.sceneId || reference.sceneId === scene?.id))
         : [],
       uploadingReference,
       referenceSelections: state.referenceSelections ?? [],
@@ -165,7 +169,7 @@ export function useStudio() {
       onReferenceIntent: setReferenceIntent,
       onRemoveRef: toggleReference,
       onUploadReference: uploadReference,
-      onRemoveUploadedReference: (referenceId: string) => dispatchStudio({ type: 'remove-uploaded-reference', referenceId }),
+      onRemoveUploadedReference: (referenceId: string) => dispatchUserStudio({ type: 'remove-uploaded-reference', referenceId }),
       onGenerate: runGenerate,
       onResolveMediaUrl: ensureMediaUrl
     },
@@ -181,7 +185,7 @@ export function useStudio() {
       onCommitProjectEdit: commitProjectName,
       onCancelProjectEdit: () => dispatchUi({ type: 'clear-project-edit' }),
       onGalleryViewMode: (mode: GalleryViewMode) => dispatchUi({ type: 'gallery-view-mode', mode }),
-      onSetActiveScene: (sceneId: string) => dispatchStudio({ type: 'set-active-scene', sceneId }),
+      onSetActiveScene: (sceneId: string) => dispatchUserStudio({ type: 'set-active-scene', sceneId }),
       onEditScene: (sceneItem: { id: string; name: string }) => dispatchUi({ type: 'edit-scene', sceneId: sceneItem.id, value: sceneItem.name }),
       onSceneEditValue: (value: string) => dispatchUi({ type: 'scene-edit-value', value }),
       onCommitSceneEdit: commitSceneName,
@@ -191,9 +195,9 @@ export function useStudio() {
       onConfirmDeleteScene: deleteScene,
       onDragSceneStart: (sceneId: string) => dispatchUi({ type: 'drag-scene', sceneId }),
       onDragSceneEnd: () => dispatchUi({ type: 'drag-scene', sceneId: null }),
-      onDragSceneOver: (sceneId: string) => ui.draggingSceneId && dispatchStudio({ type: 'move-scene', fromId: ui.draggingSceneId, toId: sceneId }),
+      onDragSceneOver: (sceneId: string) => ui.draggingSceneId && dispatchUserStudio({ type: 'move-scene', fromId: ui.draggingSceneId, toId: sceneId }),
       onPreview: (generationId: string) => dispatchUi({ type: 'preview', generationId }),
-      onTogglePreferred: (sceneId: string, generationId: string) => dispatchStudio({ type: 'toggle-preferred', sceneId, generationId }),
+      onTogglePreferred: (sceneId: string, generationId: string) => dispatchUserStudio({ type: 'toggle-preferred', sceneId, generationId }),
       onToggleReference: toggleReference,
       onAskDeleteGeneration: (generationId: string) => dispatchUi({ type: 'request-delete-generation', generationId }),
       onCancelDeleteGeneration: () => dispatchUi({ type: 'clear-delete-generation' }),
@@ -201,7 +205,7 @@ export function useStudio() {
       onDownload,
       onResolveMediaUrl: ensureMediaUrl,
       onAddScene: addScene,
-      onCreateInScene: (sceneId: string) => { dispatchStudio({ type: 'set-active-scene', sceneId }); dispatchUi({ type: 'open-composer' }); }
+      onCreateInScene: (sceneId: string) => { dispatchUserStudio({ type: 'set-active-scene', sceneId }); dispatchUi({ type: 'open-composer' }); }
     },
     overlayProps: {
       catalog: modelCatalog,
@@ -217,7 +221,7 @@ export function useStudio() {
       onResolveMediaUrl: ensureMediaUrl,
       onNavigatePreview: (generationId: string) => dispatchUi({ type: 'navigate-preview', generationId }),
       onClosePreview: () => dispatchUi({ type: 'close-preview' }),
-      onTogglePreferred: (sceneId: string, generationId: string) => dispatchStudio({ type: 'toggle-preferred', sceneId, generationId }),
+      onTogglePreferred: (sceneId: string, generationId: string) => dispatchUserStudio({ type: 'toggle-preferred', sceneId, generationId }),
       onAskDeleteGeneration: (generationId: string) => dispatchUi({ type: 'request-delete-generation', generationId }),
       onCancelDeleteGeneration: () => dispatchUi({ type: 'clear-delete-generation' }),
       onDeleteGeneration: deleteGeneration,

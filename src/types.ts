@@ -52,7 +52,6 @@ export interface ModelCatalogEntry {
   family: ModelFamily;
   modality: OutputMode;
   endpoint: string;
-  description: string;
   capabilities: ModelCapabilities;
   parameters: ParameterDescriptor[];
 }
@@ -194,6 +193,9 @@ export interface Scene {
   id: string;
   name: string;
   gens: Generation[];
+  ctl?: GenerationControls;
+  refIds?: string[];
+  referenceSelections?: GenerationReferenceSelection[];
 }
 
 export interface Project {
@@ -201,11 +203,13 @@ export interface Project {
   name: string;
   accent: string;
   scenes: Scene[];
+  activeSceneId?: string | null;
 }
 
 export interface UploadedReference {
   id: string;
   projectId: string;
+  sceneId?: string;
   name: string;
   media: StoredMediaAsset;
 }

@@ -107,6 +107,7 @@ export function useMediaUrls(dispatchUi: React.Dispatch<UiAction>) {
   }, [rememberObjectUrl, setCacheEntry]);
 
   const download = useCallback(async (generation: Generation) => {
+    dispatchUi({ type: 'api-status', apiStatus: '' });
     if (generation.media) {
       try {
         const url = await ensureMediaUrl(generation, 'download');
@@ -118,7 +119,6 @@ export function useMediaUrls(dispatchUi: React.Dispatch<UiAction>) {
         document.body.appendChild(link);
         link.click();
         link.remove();
-        dispatchUi({ type: 'api-status', apiStatus: `Download started for ${generationFilename(generation)}` });
         return;
       } catch (error) {
         dispatchUi({ type: 'api-status', apiStatus: `Download failed (${error instanceof Error ? error.message : 'unknown error'})` });

@@ -163,7 +163,6 @@ describe('studio reducer', () => {
         family: 'seedream',
         modality: 'image',
         endpoint: '/api/v3/images/generations',
-        description: 'Seedream 5.5',
         capabilities: {
           tasks: ['text-to-image'],
           resolutions: ['1K', '1.5K', '2K'],
@@ -187,5 +186,56 @@ describe('studio reducer', () => {
     const transparent = normalizeControls(catalog, initial, { params: { background: 'transparent' } });
     assert.equal(transparent.params.background, 'transparent');
     assert.equal(transparent.params.output_format, 'png');
+  });
+
+  it('scopes generation controls and references to each scene, copies settings on add-scene, and resets on new-project', () => {
+    let state = populatedState();
+    state = studioReducer(state, { type: 'set-controls', catalog: null, patch: { prompt: 'image of a rabbit', ratio: '9:16', res: '4K', seed: 42 } });
+    assert.equal(state.ctl.prompt, 'image of a rabbit');
+    assert.deepEqual(state.refIds, ['g2']);
+
+    // Creating a new scene copies active settings but empties prompt and references
+    state = studioReducer(state, { type: 'add-scene', sceneId: 'sc3', seq: 5 });
+    assert.equal(state.activeSceneId, 'sc3');
+    assert.equal(state.ctl.prompt, '');
+    assert.equal(state.ctl.ratio, '9:16');
+    assert.equal(state.ctl.res, '4K');
+    assert.equal(state.ctl.seed, 42);
+    assert.deepEqual(state.refIds, []);
+    assert.deepEqual(state.referenceSelections, []);
+
+    // Edit Scene 3 controls and reference g1 from Scene 1
+    state = studioReducer(state, { type: 'set-controls', catalog: null, patch: { prompt: 'fox in forest', ratio: '21:9' } });
+    state = studioReducer(state, { type: 'toggle-reference', generationId: 'g1', intent: 'image_reference' });
+    assert.deepEqual(state.refIds, ['g1']);
+
+    // Switch back to Scene 1: restores Scene 1 prompt, ratio, and references
+    state = studioReducer(state, { type: 'set-active-scene', sceneId: 'sc1' });
+    assert.equal(state.ctl.prompt, 'image of a rabbit');
+    assert.equal(state.ctl.ratio, '9:16');
+    assert.deepEqual(state.refIds, ['g2']);
+
+    // Switch back to Scene 3: restores Scene 3 prompt, ratio, and references
+    state = studioReducer(state, { type: 'set-active-scene', sceneId: 'sc3' });
+    assert.equal(state.ctl.prompt, 'fox in forest');
+    assert.equal(state.ctl.ratio, '21:9');
+    assert.deepEqual(state.refIds, ['g1']);
+
+    // Creating a new project resets everything to defaults
+    state = studioReducer(state, { type: 'new-project', projectId: 'p2', sceneId: 'sc4', seq: 6 });
+    assert.equal(state.activeProjectId, 'p2');
+    assert.equal(state.activeSceneId, 'sc4');
+    assert.equal(state.ctl.prompt, '');
+    assert.equal(state.ctl.ratio, '16:9');
+    assert.equal(state.ctl.seed, '');
+    assert.deepEqual(state.refIds, []);
+
+    // Switching back to Project 1 restores its last active scene (sc3) and its controls
+    state = studioReducer(state, { type: 'set-active-project', projectId: 'p1' });
+    assert.equal(state.activeProjectId, 'p1');
+    assert.equal(state.activeSceneId, 'sc3');
+    assert.equal(state.ctl.prompt, 'fox in forest');
+    assert.equal(state.ctl.ratio, '21:9');
+    assert.deepEqual(state.refIds, ['g1']);
   });
 });

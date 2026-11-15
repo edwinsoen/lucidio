@@ -33,11 +33,11 @@ export const initialUiState: UiState = {
   previewGenId: null,
   draggingSceneId: null,
   composerOpen: false,
-  apiStatus: 'Loading model catalog…'
+  apiStatus: ''
 };
 
 export type UiAction =
-  | { type: 'hydrate'; apiStatus: string }
+  | { type: 'hydrate'; apiStatus?: string }
   | { type: 'api-status'; apiStatus: string }
   | { type: 'gallery-view-mode'; mode: GalleryViewMode }
   | { type: 'edit-project'; projectId: string; value: string }
@@ -64,54 +64,55 @@ export type UiAction =
 export function uiReducer(state: UiState, action: UiAction): UiState {
   switch (action.type) {
     case 'hydrate':
-      return { ...state, hydrated: true, apiStatus: action.apiStatus };
+      return { ...state, hydrated: true, apiStatus: action.apiStatus ?? state.apiStatus };
     case 'api-status':
       return { ...state, apiStatus: action.apiStatus };
     case 'gallery-view-mode':
-      return { ...state, galleryViewMode: action.mode };
+      return { ...state, apiStatus: '', galleryViewMode: action.mode };
     case 'edit-project':
-      return { ...state, editingProjectId: action.projectId, projectEditValue: action.value };
+      return { ...state, apiStatus: '', editingProjectId: action.projectId, projectEditValue: action.value };
     case 'project-edit-value':
-      return { ...state, projectEditValue: action.value };
+      return { ...state, apiStatus: '', projectEditValue: action.value };
     case 'clear-project-edit':
-      return { ...state, editingProjectId: null, projectEditValue: '' };
+      return { ...state, apiStatus: '', editingProjectId: null, projectEditValue: '' };
     case 'edit-scene':
-      return { ...state, editingSceneId: action.sceneId, editValue: action.value };
+      return { ...state, apiStatus: '', editingSceneId: action.sceneId, editValue: action.value };
     case 'scene-edit-value':
-      return { ...state, editValue: action.value };
+      return { ...state, apiStatus: '', editValue: action.value };
     case 'clear-scene-edit':
-      return { ...state, editingSceneId: null, editValue: '' };
+      return { ...state, apiStatus: '', editingSceneId: null, editValue: '' };
     case 'toggle-project-menu':
       return {
         ...state,
+        apiStatus: '',
         openProjectMenuId: state.openProjectMenuId === action.projectId ? null : action.projectId,
         projectMenuAnchor: state.openProjectMenuId === action.projectId ? null : action.anchor
       };
     case 'request-delete-project':
-      return { ...state, openProjectMenuId: null, projectMenuAnchor: null, confirmDeleteProjectId: action.projectId };
+      return { ...state, apiStatus: '', openProjectMenuId: null, projectMenuAnchor: null, confirmDeleteProjectId: action.projectId };
     case 'clear-delete-project':
-      return { ...state, confirmDeleteProjectId: null };
+      return { ...state, apiStatus: '', confirmDeleteProjectId: null };
     case 'request-delete-scene':
-      return { ...state, confirmDeleteSceneId: action.sceneId };
+      return { ...state, apiStatus: '', confirmDeleteSceneId: action.sceneId };
     case 'clear-delete-scene':
-      return { ...state, confirmDeleteSceneId: null };
+      return { ...state, apiStatus: '', confirmDeleteSceneId: null };
     case 'request-delete-generation':
-      return { ...state, confirmDeleteGenId: action.generationId };
+      return { ...state, apiStatus: '', confirmDeleteGenId: action.generationId };
     case 'clear-delete-generation':
-      return { ...state, confirmDeleteGenId: null };
+      return { ...state, apiStatus: '', confirmDeleteGenId: null };
     case 'preview':
-      return { ...state, previewGenId: action.generationId };
+      return { ...state, apiStatus: '', previewGenId: action.generationId };
     case 'navigate-preview':
-      return { ...state, previewGenId: action.generationId, confirmDeleteGenId: null };
+      return { ...state, apiStatus: '', previewGenId: action.generationId, confirmDeleteGenId: null };
     case 'close-preview':
-      return { ...state, previewGenId: null, confirmDeleteGenId: null };
+      return { ...state, apiStatus: '', previewGenId: null, confirmDeleteGenId: null };
     case 'drag-scene':
-      return { ...state, draggingSceneId: action.sceneId };
+      return { ...state, apiStatus: '', draggingSceneId: action.sceneId };
     case 'open-composer':
-      return { ...state, composerOpen: true };
+      return { ...state, apiStatus: '', composerOpen: true };
     case 'close-composer':
-      return { ...state, composerOpen: false };
+      return { ...state, apiStatus: '', composerOpen: false };
     case 'generation-deleted':
-      return { ...state, confirmDeleteGenId: null, previewGenId: state.previewGenId === action.generationId ? null : state.previewGenId };
+      return { ...state, apiStatus: '', confirmDeleteGenId: null, previewGenId: state.previewGenId === action.generationId ? null : state.previewGenId };
   }
 }
